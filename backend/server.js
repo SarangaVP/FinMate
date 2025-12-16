@@ -1,14 +1,20 @@
-const express = require('express');
+require('dotenv').config();
 
-const PORT = 5000;
+const express = require('express');
+const mongoose = require('mongoose');
+const connectDB = require('./config/db');
+
+connectDB();
 
 const app = express();
+const PORT = process.env.PORT || 5000; 
 
 app.use(express.json());
 
 app.get('/', (req, res) => {
     res.status(200).json({ 
-        message: 'FinMate Backend API is running!'
+        message: 'FinMate Backend API is running!',
+        dbStatus: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected' 
     });
 });
 
