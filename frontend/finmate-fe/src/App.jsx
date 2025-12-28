@@ -3,11 +3,6 @@ import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
 import Transactions from './components/Transactions';
 
-// Temporary placeholder components for other pages
-const Budget = () => <div className="p-8">Budget & Goals Page Coming Soon</div>;
-const Shared = () => <div className="p-8">Shared Expenses Page Coming Soon</div>;
-const Profile = () => <div className="p-8">Profile Management Page Coming Soon</div>;
-
 function App() {
   return (
     <Router>
@@ -20,9 +15,9 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/transactions" element={<Transactions />} />
-            <Route path="/budget" element={<Budget />} />
+            {/* <Route path="/budget" element={<Budget />} />
             <Route path="/shared" element={<Shared />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile" element={<Profile />} /> */}
           </Routes>
         </main>
       </div>
