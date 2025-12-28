@@ -23,7 +23,7 @@ const Navbar = () => {
       icon: <CalendarClock size={20} />, 
       alert: '3 Due' // Visual indicator for Automated Monitoring
     },
-    { name: 'Budgets & Goals', path: '/budget', icon: <Target size={20} /> },
+    { name: 'Budgets & Goals', path: '/budgets-goals', icon: <Target size={20} /> },
     { name: 'Shared Groups', path: '/shared', icon: <Users size={20} /> },
     { name: 'Reports & AI', path: '/reports', icon: <BarChart3 size={20} /> },
     { name: 'Profile', path: '/profile', icon: <UserCircle size={20} /> },
