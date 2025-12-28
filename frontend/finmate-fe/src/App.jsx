@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
 import Transactions from './components/Transactions';
+import SharedGroups from './components/SharedGroups';
+import BudgetsGoals from './components/BudgetsGoals';
 
 function App() {
   return (
@@ -15,9 +17,9 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/transactions" element={<Transactions />} />
-            {/* <Route path="/budget" element={<Budget />} />
-            <Route path="/shared" element={<Shared />} />
-            <Route path="/profile" element={<Profile />} /> */}
+            <Route path="/budgets-goals" element={<BudgetsGoals />} />
+            <Route path="/shared" element={<SharedGroups />} />
+            {/* <Route path="/profile" element={<Profile />} /> */}
           </Routes>
         </main>
       </div>
