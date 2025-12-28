@@ -26,7 +26,7 @@ const Transactions = () => {
         <div className="flex justify-between items-end mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Transactions</h1>
-            <p className="text-gray-500 text-sm">Record your expenses and let Gemini AI do the sorting.</p>
+            <p className="text-gray-500 text-sm">Record your expenses and let AI do the sorting.</p>
           </div>
           <div className="flex gap-3">
             <button className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all">
@@ -41,7 +41,7 @@ const Transactions = () => {
         {/* 1. Smart Entry Form (The AI Core) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-50 mb-8">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <Sparkles size={14} className="text-blue-500" /> AI-Powered Data Entry
+            <Sparkles size={14} className="text-blue-500" /> Data Entry
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2 relative">
@@ -50,7 +50,7 @@ const Transactions = () => {
                 type="text" 
                 value={description}
                 onChange={handleDescriptionChange}
-                placeholder="What did you spend on? (e.g., Starbucks Coffee)" 
+                placeholder="What did you spend on? (e.g., Movie tickets, groceries)" 
                 className="w-full bg-gray-50 border border-gray-100 rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all"
               />
               {/* The AI Feedback Badge */}
@@ -91,7 +91,7 @@ const Transactions = () => {
             <tbody className="divide-y divide-gray-50">
               <tr className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-6 py-4"><ArrowDownRight className="text-red-500 bg-red-50 p-1 rounded" size={24} /></td>
-                <td className="px-6 py-4 font-medium text-gray-700 text-sm">Starbucks Coffee</td>
+                <td className="px-6 py-4 font-medium text-gray-700 text-sm">Pizza</td>
                 <td className="px-6 py-4 text-center"><span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">Food & Drink</span></td>
                 <td className="px-6 py-4 text-right font-bold text-red-600">- 1,250.00</td>
               </tr>
