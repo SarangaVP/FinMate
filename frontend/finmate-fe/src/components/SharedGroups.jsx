@@ -56,7 +56,7 @@ const SharedGroups = () => {
                   {/* Settlement Item 1 */}
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600">JD</div>
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600">KP</div>
                       <div className='text-left'>
                         <p className="text-sm font-bold text-gray-800">You owe Kasun Perera</p>
                         <p className="text-xs text-gray-500">For: Electricity Bill (Dec)</p>
