@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart3, BrainCircuit, Download, TrendingDown, TrendingUp, Zap, Sparkles } from 'lucide-react';
+import { Card, CardHeader, Button } from './ui';
 
 const Reports = () => {
   return (
@@ -11,16 +12,16 @@ const Reports = () => {
             <h1 className="text-2xl font-bold text-gray-800">Reports & AI Insights</h1>
             <p className="text-gray-500 text-sm">Deep dive into your spending patterns powered by Google Gemini.</p>
           </div>
-          <button className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-xl text-sm font-bold hover:bg-gray-50 transition-all">
-            <Download size={16} /> Export PDF
-          </button>
+          <Button variant="secondary" icon={Download}>
+            Export PDF
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* 1. The "Gemini Digest" - Fulfills Intelligent Summarization Requirement */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-indigo-50 relative overflow-hidden">
+            <Card className="p-8 rounded-3xl border-indigo-50 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4">
                 <Sparkles className="text-indigo-200 animate-pulse" size={40} />
               </div>
@@ -59,31 +60,31 @@ const Reports = () => {
               </div>
               
               <div className="mt-8 pt-6 border-t border-gray-50 flex gap-4">
-                <button className="text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-all">
+                <Button variant="ghost" size="sm" className="text-indigo-600 bg-indigo-50 hover:bg-indigo-100">
                   Generate Monthly View
-                </button>
-                <button className="text-xs font-bold text-gray-400 px-4 py-2 hover:text-gray-600 transition-all">
+                </Button>
+                <Button variant="ghost" size="sm">
                   Dismiss
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
 
             {/* Placeholder for Analytics Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-64 flex flex-col items-center justify-center">
+              <Card className="p-6 h-64 flex flex-col items-center justify-center">
                 <BarChart3 className="text-gray-200 mb-2" size={48} />
                 <p className="text-gray-400 text-sm font-medium">Spending by Category Chart</p>
-              </div>
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-64 flex flex-col items-center justify-center">
+              </Card>
+              <Card className="p-6 h-64 flex flex-col items-center justify-center">
                 <TrendingUp className="text-gray-200 mb-2" size={48} />
                 <p className="text-gray-400 text-sm font-medium">Income vs Expense Trend</p>
-              </div>
+              </Card>
             </div>
           </div>
 
           {/* 2. Side Panel: Quick Stats */}
           <div className="space-y-6">
-            <div className="bg-gray-900 text-white p-6 rounded-3xl shadow-xl">
+            <Card variant="dark" className="p-6 rounded-3xl">
               <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-4">Quick Insights</h3>
               <div className="space-y-6">
                 <div>
@@ -94,26 +95,22 @@ const Reports = () => {
                   <p className="text-xs text-gray-400 mb-1">Top Spending Category</p>
                   <p className="text-lg font-bold text-amber-400">Food & Beverages</p>
                 </div>
-                {/* <div className="pt-4 border-t border-gray-800 text-center">
-                    <p className="text-3xl font-black text-indigo-400">88/100</p>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">AI Financial Health Score</p>
-                </div> */}
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-               <h3 className="font-bold text-gray-800 mb-4 text-sm">Download History</h3>
-               <div className="space-y-3">
-                 <div className="flex justify-between text-xs p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-all">
-                    <span className="text-gray-600">November_Summary.csv</span>
-                    <Download size={14} className="text-gray-400" />
-                 </div>
-                 <div className="flex justify-between text-xs p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-all">
-                    <span className="text-gray-600">Q4_Tax_Report.pdf</span>
-                    <Download size={14} className="text-gray-400" />
-                 </div>
-               </div>
-            </div>
+            <Card className="p-6">
+              <CardHeader title="Download History" />
+              <div className="space-y-3">
+                <div className="flex justify-between text-xs p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-all">
+                  <span className="text-gray-600">November_Summary.csv</span>
+                  <Download size={14} className="text-gray-400" />
+                </div>
+                <div className="flex justify-between text-xs p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-all">
+                  <span className="text-gray-600">Q4_Tax_Report.pdf</span>
+                  <Download size={14} className="text-gray-400" />
+                </div>
+              </div>
+            </Card>
           </div>
 
         </div>
