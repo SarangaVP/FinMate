@@ -1,5 +1,6 @@
 import React from 'react';
-import { Target, PieChart, AlertTriangle, Plus, Flame, TrendingUp } from 'lucide-react';
+import { Target, PieChart, AlertTriangle, Plus, Flame } from 'lucide-react';
+import { Card, CardHeader, Button, ProgressBar } from './ui';
 
 const BudgetsGoals = () => {
   const categories = [
@@ -21,21 +22,18 @@ const BudgetsGoals = () => {
             <h1 className="text-2xl font-bold text-gray-800">Budgets & Saving Goals</h1>
             <p className="text-gray-500 text-sm">Set limits and track your journey to financial milestones.</p>
           </div>
-          <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all">
-            <Plus size={16} /> Create New
-          </button>
+          <Button variant="primary" icon={Plus}>
+            Create New
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* 1. Monthly Budgets Section */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-6">
-              <PieChart className="text-blue-600" size={20} />
-              <h2 className="font-bold text-gray-800">Category Budgets</h2>
-            </div>
+          <Card className="p-6">
+            <CardHeader icon={PieChart} title="Category Budgets" />
             
-            <div className="space-y-8">
+            <div className="space-y-8 mt-6">
               {categories.map((cat, idx) => {
                 const percent = (cat.spent / cat.limit) * 100;
                 const isOver = cat.spent > cat.limit;
@@ -53,13 +51,7 @@ const BudgetsGoals = () => {
                         {percent.toFixed(0)}%
                       </span>
                     </div>
-                    {/* Progress Bar Container */}
-                    <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-1000 ${isOver ? 'bg-red-500' : cat.color}`} 
-                        style={{ width: `${Math.min(percent, 100)}%` }}
-                      ></div>
-                    </div>
+                    <ProgressBar value={cat.spent} max={cat.limit} color={cat.color} />
                     {isOver && (
                       <div className="flex items-center gap-1 mt-2 text-red-500">
                         <AlertTriangle size={12} />
@@ -70,17 +62,14 @@ const BudgetsGoals = () => {
                 );
               })}
             </div>
-          </div>
+          </Card>
 
           {/* 2. Saving Goals Section */}
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 mb-6">
-                <Target className="text-indigo-600" size={20} />
-                <h2 className="font-bold text-gray-800">Saving Goals</h2>
-              </div>
+            <Card className="p-6">
+              <CardHeader icon={Target} title="Saving Goals" iconColor="text-indigo-600" />
 
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-4 mt-6">
                 {goals.map((goal, idx) => {
                   const percent = (goal.current / goal.target) * 100;
                   return (
@@ -110,10 +99,10 @@ const BudgetsGoals = () => {
                   );
                 })}
               </div>
-            </div>
+            </Card>
 
             {/* AI Contribution Suggestion (SRS Requirement: Proactive Planning) */}
-            <div className="bg-linear-to-r from-orange-400 to-rose-500 p-6 rounded-2xl shadow-md text-white">
+            <Card variant="gradient" className="p-6 bg-linear-to-r from-orange-400 to-rose-500">
               <div className="flex items-center gap-2 mb-2 text-left">
                 <Flame size={18} />
                 <span className="font-bold text-sm uppercase tracking-tighter">AI Quick Action</span>
@@ -122,10 +111,10 @@ const BudgetsGoals = () => {
                 "We found a surplus of LKR 5,000 in your wallet. 
                 Move it to your 'New Laptop' goal to finish earlier?"
               </p>
-              <button className="w-full bg-white text-rose-500 py-2 rounded-lg font-bold text-xs hover:bg-rose-50 transition-colors">
+              <Button variant="secondary" size="md" className="w-full bg-white text-rose-500 hover:bg-rose-50 border-0">
                 Apply Contribution
-              </button>
-            </div>
+              </Button>
+            </Card>
           </div>
 
         </div>
