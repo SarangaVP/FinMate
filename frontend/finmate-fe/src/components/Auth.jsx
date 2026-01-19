@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Wallet, Mail, Lock, User, ArrowRight, Sparkles, TrendingUp, PieChart } from 'lucide-react';
+import { Card, Button, Input } from './ui';
 
-const Auth = () => {
+const Auth = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
 
   return (
@@ -30,40 +31,28 @@ const Auth = () => {
           <form className={`${isLogin ? 'space-y-5' : 'space-y-3'}`} onSubmit={(e) => e.preventDefault()}>
             {!isLogin && (
               <>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-400 uppercase ml-1">First Name</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-3.5 text-gray-400" size={18} />
-                    <input
-                      type="text"
-                      placeholder=""
-                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 pl-12 pr-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm" />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-400 uppercase ml-1">Last Name</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-3.5 text-gray-400" size={18} />
-                    <input
-                      type="text"
-                      placeholder=""
-                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 pl-12 pr-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm" />
-                  </div>
-                </div>
+                <Input 
+                  label="First Name"
+                  type="text"
+                  icon={User}
+                  compact
+                />
+                <Input 
+                  label="Last Name"
+                  type="text"
+                  icon={User}
+                  compact
+                />
               </>
             )}
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase ml-1">Email Address</label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-3.5 text-gray-400" size={18} />
-                <input 
-                  type="email" 
-                  placeholder="name@example.com" 
-                  className={`w-full bg-gray-50 border border-gray-100 rounded-2xl ${isLogin ? 'py-3.5' : 'py-3'} pl-12 pr-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm`}
-                />
-              </div>
-            </div>
+            <Input 
+              label="Email Address"
+              type="email"
+              icon={Mail}
+              placeholder="name@example.com"
+              compact={!isLogin}
+            />
 
             <div className="space-y-1">
               <div className="flex justify-between items-center px-1">
@@ -84,9 +73,15 @@ const Auth = () => {
               </div>
             </div>
 
-            <button className={`w-full bg-blue-600 text-white ${isLogin ? 'py-4' : 'py-3.5'} rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 ${isLogin ? 'mt-8' : 'mt-6'}`}>
-              {isLogin ? 'Sign In' : 'Get Started'} <ArrowRight size={18} />
-            </button>
+            <Button 
+              variant="primary" 
+              size={isLogin ? 'xl' : 'lg'}
+              icon={ArrowRight}
+              className={`w-full ${isLogin ? 'mt-8' : 'mt-6'}`}
+              onClick={onLogin}
+            >
+              {isLogin ? 'Sign In' : 'Get Started'}
+            </Button>
           </form>
 
           <p className={`${isLogin ? 'mt-8' : 'mt-6'} text-center text-sm text-gray-500`}>
@@ -108,12 +103,12 @@ const Auth = () => {
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full -ml-20 -mb-20 blur-2xl"></div>
 
         <div className="relative z-10 max-w-md">
-          <div className="bg-white/20 backdrop-blur-md p-8 rounded-3xl border border-white/20 mb-8">
+          <Card className="bg-white/20 backdrop-blur-md p-8 border border-white/20 mb-8 shadow-none">
              <div className="flex items-center gap-2 mb-4">
                 <Sparkles className="text-blue-200" size={24} />
                 <span className="text-xs font-bold uppercase tracking-widest text-blue-100">Smart Finance Tracking</span>
              </div>
-             <h2 className="text-2xl font-bold mb-4">Take control of your financial future.</h2>
+             <h2 className="text-2xl font-bold mb-4 text-white">Take control of your financial future.</h2>
              <ul className="space-y-4">
                 <li className="flex items-start gap-3 text-sm text-blue-50">
                    <TrendingUp className="shrink-0 mt-1" size={16} />
@@ -124,7 +119,7 @@ const Auth = () => {
                    <span>Set budgets and achieve your savings goals effortlessly.</span>
                 </li>
              </ul>
-          </div>
+          </Card>
           <div className="text-center opacity-60 text-sm italic">
             "The smartest way to manage personal and shared expenses."
           </div>
