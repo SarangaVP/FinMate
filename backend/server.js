@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const mongoose = require('mongoose');
-const connectDB = require('./config/db');
+const connectDB = require('./src/config/db');
 
 connectDB();
 
