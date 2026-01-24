@@ -17,7 +17,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 
 app.use(cors({
-    origin: 'http://localhost:3000', // Update this to your React/Frontend URL
+    origin: 'http://localhost:5173', // Update this to your React/Frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
