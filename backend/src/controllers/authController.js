@@ -34,9 +34,9 @@ exports.register = async (req, res) => {
 // Login user and return JWT
 exports.login = async (req, res) => {
     try {
-        const { emailAddress, password } = req.body;
+        const { email, password } = req.body;  // Changed from emailAddress to email
 
-        const user = await User.findOne({ emailAddress });
+        const user = await User.findOne({ email });  // Changed from emailAddress to email
         if (!user) return res.status(400).json({ message: "Invalid Credentials" });
 
         const isMatch = await bcrypt.compare(password, user.password);
