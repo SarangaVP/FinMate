@@ -12,15 +12,18 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000; 
 
-app.use(express.json());
-app.use('/api/auth', authRoutes);
-app.use('/api/transactions', transactionRoutes);
-
+// CORS must come BEFORE routes
 app.use(cors({
-    origin: 'http://localhost:5173', // Update this to your React/Frontend URL
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+app.use(express.json());
+
+// Routes come AFTER cors and json middleware
+app.use('/api/auth', authRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).json({ 
