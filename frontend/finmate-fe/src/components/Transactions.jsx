@@ -1,10 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Sparkles, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { Card, Button, Input, PageHeader, Badge } from './ui';
+import API from '../utils/api';
 
 const Transactions = () => {
   const [description, setDescription] = useState('');
   const [aiCategory, setAiCategory] = useState('Pending...');
+  const [amount, setAmount] = useState('');
+  const [type, setType] = useState('expense');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Fetch transactions on component mount
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      const response = await API.get('/transactions');
+      setTransactions(response.data);
+    } catch (error) {
+      console.error('Failed to fetch transactions', error);
+    }
+  };
 
   const handleDescriptionChange = (e) => {
     const val = e.target.value;
@@ -16,6 +37,53 @@ const Transactions = () => {
     } else {
       setAiCategory('General');
     }
+  };
+
+  const handleFormSubmit = async () => {
+    if (!description || !amount) {
+      alert('Please fill in description and amount');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const payload = {
+        description,
+        amount: parseFloat(amount),
+        type,
+        date
+      };
+
+      const response = await API.post('/transactions', payload);
+      setAiCategory(response.data.category);
+      alert(`Saved! AI categorized this as: ${response.data.category}`);
+      
+      // Refresh transaction list
+      fetchTransactions();
+      
+      // Reset form
+      setDescription('');
+      setAmount('');
+      setAiCategory('Pending...');
+    } catch (error) {
+      console.error("Submission failed", error);
+      alert('Failed to save transaction');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Filter transactions based on search
+  const filteredTransactions = transactions.filter(t =>
+    t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const formatAmount = (amount) => {
+    return new Intl.NumberFormat('en-LK', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
   };
 
   return (
@@ -47,8 +115,36 @@ const Transactions = () => {
                 AI Suggests: {aiCategory}
               </div>
             </div>
-            <Input label="Amount" type="number" placeholder="0.00" />
-            <Input label="Date" type="date" />
+            <Input 
+              label="Amount" 
+              type="number" 
+              placeholder="0.00" 
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <Input 
+              label="Date" 
+              type="date" 
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+          <div className="mt-4 flex items-center gap-4">
+            <select 
+              value={type} 
+              onChange={(e) => setType(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm outline-none"
+            >
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+            <Button 
+              variant="primary" 
+              onClick={handleFormSubmit}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Saving...' : 'Save Transaction'}
+            </Button>
           </div>
         </Card>
 
@@ -58,7 +154,13 @@ const Transactions = () => {
             <span className="font-bold text-gray-700">Recent Logs</span>
             <div className="relative">
               <Search className="absolute left-3 top-2 text-gray-400" size={14} />
-              <input type="text" placeholder="Search..." className="bg-white border rounded-lg pl-8 pr-4 py-1 text-xs outline-none" />
+              <input 
+                type="text" 
+                placeholder="Search..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-white border rounded-lg pl-8 pr-4 py-1 text-xs outline-none" 
+              />
             </div>
           </div>
           <table className="w-full text-left">
@@ -71,18 +173,38 @@ const Transactions = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              <tr className="hover:bg-gray-50/50 transition-colors">
-                <td className="px-6 py-4"><ArrowDownRight className="text-red-500 bg-red-50 p-1 rounded" size={24} /></td>
-                <td className="px-6 py-4 font-medium text-gray-700 text-sm">Pizza</td>
-                <td className="px-6 py-4 text-center"><Badge variant="primary">Food & Drink</Badge></td>
-                <td className="px-6 py-4 text-right font-bold text-red-600">- 1,250.00</td>
-              </tr>
-              <tr className="hover:bg-gray-50/50 transition-colors">
-                <td className="px-6 py-4"><ArrowUpRight className="text-green-500 bg-green-50 p-1 rounded" size={24} /></td>
-                <td className="px-6 py-4 font-medium text-gray-700 text-sm">Monthly Salary</td>
-                <td className="px-6 py-4 text-center"><Badge variant="success">Income</Badge></td>
-                <td className="px-6 py-4 text-right font-bold text-green-600">+ 120,000.00</td>
-              </tr>
+              {filteredTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="px-6 py-8 text-center text-gray-400">
+                    No transactions found
+                  </td>
+                </tr>
+              ) : (
+                filteredTransactions.map((transaction) => (
+                  <tr key={transaction._id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      {transaction.type === 'income' ? (
+                        <ArrowUpRight className="text-green-500 bg-green-50 p-1 rounded" size={24} />
+                      ) : (
+                        <ArrowDownRight className="text-red-500 bg-red-50 p-1 rounded" size={24} />
+                      )}
+                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-700 text-sm">
+                      {transaction.description}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <Badge variant={transaction.type === 'income' ? 'success' : 'primary'}>
+                        {transaction.category}
+                      </Badge>
+                    </td>
+                    <td className={`px-6 py-4 text-right font-bold ${
+                      transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {transaction.type === 'income' ? '+' : '-'} {formatAmount(transaction.amount)}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </Card>
