@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Sparkles, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { Plus, Search, Filter, Sparkles, ArrowDownRight, ArrowUpRight, Pencil, Trash2, X, Check } from 'lucide-react';
 import { Card, Button, Input, PageHeader, Badge } from './ui';
 import API from '../utils/api';
 
@@ -12,6 +12,15 @@ const Transactions = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Edit state
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    description: '',
+    amount: '',
+    type: '',
+    date: ''
+  });
 
   // Fetch transactions on component mount
   useEffect(() => {
@@ -70,6 +79,63 @@ const Transactions = () => {
       alert('Failed to save transaction');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Start editing a transaction
+  const handleEditClick = (transaction) => {
+    setEditingId(transaction._id);
+    setEditForm({
+      description: transaction.description,
+      amount: transaction.amount,
+      type: transaction.type,
+      date: transaction.date ? transaction.date.split('T')[0] : ''
+    });
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ description: '', amount: '', type: '', date: '' });
+  };
+
+  // Save edited transaction
+  const handleSaveEdit = async (id) => {
+    if (!editForm.description || !editForm.amount) {
+      alert('Please fill in description and amount');
+      return;
+    }
+
+    try {
+      await API.put(`/transactions/${id}`, {
+        description: editForm.description,
+        amount: parseFloat(editForm.amount),
+        type: editForm.type,
+        date: editForm.date
+      });
+      
+      alert('Transaction updated successfully!');
+      setEditingId(null);
+      fetchTransactions();
+    } catch (error) {
+      console.error('Failed to update transaction', error);
+      alert('Failed to update transaction');
+    }
+  };
+
+  // Delete a transaction
+  const handleDelete = async (id) => {
+    const confirmDelete = window.confirm('Are you sure you want to delete this transaction?');
+    
+    if (confirmDelete) {
+      try {
+        await API.delete(`/transactions/${id}`);
+        alert('Transaction deleted successfully!');
+        fetchTransactions();
+      } catch (error) {
+        console.error('Failed to delete transaction', error);
+        alert('Failed to delete transaction');
+      }
     }
   };
 
@@ -170,38 +236,116 @@ const Transactions = () => {
                 <th className="px-6 py-4">Description</th>
                 <th className="px-6 py-4 text-center">AI Category</th>
                 <th className="px-6 py-4 text-right">Amount (LKR)</th>
+                <th className="px-6 py-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan="5" className="px-6 py-8 text-center text-gray-400">
                     No transactions found
                   </td>
                 </tr>
               ) : (
                 filteredTransactions.map((transaction) => (
                   <tr key={transaction._id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4">
-                      {transaction.type === 'income' ? (
-                        <ArrowUpRight className="text-green-500 bg-green-50 p-1 rounded" size={24} />
-                      ) : (
-                        <ArrowDownRight className="text-red-500 bg-red-50 p-1 rounded" size={24} />
-                      )}
-                    </td>
-                    <td className="px-6 py-4 font-medium text-gray-700 text-sm">
-                      {transaction.description}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <Badge variant={transaction.type === 'income' ? 'success' : 'primary'}>
-                        {transaction.category}
-                      </Badge>
-                    </td>
-                    <td className={`px-6 py-4 text-right font-bold ${
-                      transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {transaction.type === 'income' ? '+' : '-'} {formatAmount(transaction.amount)}
-                    </td>
+                    {/* Check if this row is being edited */}
+                    {editingId === transaction._id ? (
+                      // Edit Mode Row
+                      <>
+                        <td className="px-6 py-4">
+                          <select
+                            value={editForm.type}
+                            onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                            className="border rounded px-2 py-1 text-sm outline-none"
+                          >
+                            <option value="expense">Expense</option>
+                            <option value="income">Income</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4">
+                          <input
+                            type="text"
+                            value={editForm.description}
+                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                            className="border rounded px-2 py-1 text-sm w-full outline-none"
+                          />
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Badge variant={editForm.type === 'income' ? 'success' : 'primary'}>
+                            {transaction.category}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <input
+                            type="number"
+                            value={editForm.amount}
+                            onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                            className="border rounded px-2 py-1 text-sm w-24 text-right outline-none"
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleSaveEdit(transaction._id)}
+                              className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                              title="Save"
+                            >
+                              <Check size={16} />
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                              title="Cancel"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      // Normal View Row
+                      <>
+                        <td className="px-6 py-4">
+                          {transaction.type === 'income' ? (
+                            <ArrowUpRight className="text-green-500 bg-green-50 p-1 rounded" size={24} />
+                          ) : (
+                            <ArrowDownRight className="text-red-500 bg-red-50 p-1 rounded" size={24} />
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-gray-700 text-sm">
+                          {transaction.description}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Badge variant={transaction.type === 'income' ? 'success' : 'primary'}>
+                            {transaction.category}
+                          </Badge>
+                        </td>
+                        <td className={`px-6 py-4 text-right font-bold ${
+                          transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {transaction.type === 'income' ? '+' : '-'} {formatAmount(transaction.amount)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleEditClick(transaction)}
+                              className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                              title="Edit"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(transaction._id)}
+                              className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))
               )}
