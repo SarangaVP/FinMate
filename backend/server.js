@@ -6,6 +6,7 @@ const cors = require('cors');
 const connectDB = require('./src/config/db');
 const authRoutes = require('./src/routes/authRoutes');
 const transactionRoutes = require('./src/routes/transactionRoutes');
+const userRoutes = require('./src/routes/userRoutes');
 
 connectDB();
 
@@ -24,6 +25,7 @@ app.use(express.json());
 // Routes come AFTER cors and json middleware
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).json({ 
