@@ -47,7 +47,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-50">
+    <nav className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 hidden lg:flex flex-col z-50">
       
       {/* 1. Branding Section */}
       <div className="p-6">

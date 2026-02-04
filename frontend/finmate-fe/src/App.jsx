@@ -32,7 +32,7 @@ const ProtectedRoutes = () => {
   return (
     <div className="flex bg-gray-50 min-h-screen font-sans">
       <Navbar onLogout={logout} />
-      <main className="flex-1 ml-64 overflow-y-auto">
+      <main className="flex-1 ml-0 lg:ml-64 overflow-y-auto">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/transactions" element={<Transactions />} />

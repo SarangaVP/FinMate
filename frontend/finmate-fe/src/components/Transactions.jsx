@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Sparkles, ArrowDownRight, ArrowUpRight, Pencil, Trash2, X, Check, CheckCircle, AlertCircle } from 'lucide-react';
-import { Card, Button, Input, PageHeader, Badge } from './ui';
+import { Plus, Search, Filter, Sparkles, ArrowDownRight, ArrowUpRight, Pencil, Trash2, X, Check, CheckCircle, AlertCircle, Wallet } from 'lucide-react';
+import { Card, Button, Input, Badge } from './ui';
 import API from '../utils/api';
 
 const Transactions = () => {
@@ -178,10 +178,18 @@ const Transactions = () => {
   };
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
+    <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
+      {/* Mobile Header - Only visible on small screens */}
+      <div className="lg:hidden flex items-center gap-3 mb-6">
+        <div className="bg-blue-600 p-2 rounded-lg text-white shadow-lg shadow-blue-200">
+          <Wallet size={20} />
+        </div>
+        <span className="text-lg font-bold text-gray-800 tracking-tight italic">FinMate</span>
+      </div>
+
       {/* Toast Notification */}
       {toast.show && (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg transition-all ${
+        <div className={`fixed top-4 right-4 left-4 md:left-auto z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg transition-all ${
           toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`}>
           {toast.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
@@ -191,8 +199,8 @@ const Transactions = () => {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm.show && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-xl">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
             <h3 className="text-lg font-bold text-gray-800 mb-2">Delete Transaction</h3>
             <p className="text-gray-600 text-sm mb-6">Are you sure you want to delete this transaction? This action cannot be undone.</p>
             <div className="flex gap-3 justify-end">
@@ -214,15 +222,19 @@ const Transactions = () => {
       )}
 
       <div className="max-w-5xl mx-auto">
-        <PageHeader 
-          title="Transactions" 
-          subtitle="Record your expenses and let AI do the sorting."
-        >
-          <Button variant="secondary" icon={Filter}>Filter</Button>
-        </PageHeader>
+        {/* Mobile-friendly header */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-6 md:mb-8">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-800">Transactions</h1>
+            <p className="text-gray-500 text-sm">Record your expenses and let AI do the sorting.</p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="secondary" icon={Filter}>Filter</Button>
+          </div>
+        </div>
 
         {/* Smart Entry Form */}
-        <Card className="p-6 mb-8 border-blue-50">
+        <Card className="p-4 md:p-6 mb-6 md:mb-8 border-blue-50">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
             <Sparkles size={14} className="text-blue-500" /> Data Entry
           </h3>
@@ -234,7 +246,7 @@ const Transactions = () => {
                 onChange={handleDescriptionChange}
                 placeholder="What did you spend on?"
               />
-              <div className="absolute right-3 top-8 flex items-center gap-1.5 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
+              <div className="mt-2 md:mt-0 md:absolute md:right-3 md:top-8 flex items-center gap-1.5 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold animate-pulse w-fit">
                 <Sparkles size={12} />
                 AI Suggests: {aiCategory}
               </div>
@@ -253,7 +265,7 @@ const Transactions = () => {
               onChange={(e) => setDate(e.target.value)}
             />
           </div>
-          <div className="mt-4 flex items-center gap-4">
+          <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
             <select 
               value={type} 
               onChange={(e) => setType(e.target.value)}
@@ -274,7 +286,7 @@ const Transactions = () => {
 
         {/* Transaction History */}
         <Card className="overflow-hidden">
-          <div className="p-4 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
+          <div className="p-4 border-b border-gray-50 bg-gray-50/30 flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
             <span className="font-bold text-gray-700">Recent Logs</span>
             <div className="relative">
               <Search className="absolute left-3 top-2 text-gray-400" size={14} />
@@ -283,144 +295,247 @@ const Transactions = () => {
                 placeholder="Search..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-white border rounded-lg pl-8 pr-4 py-1 text-xs outline-none" 
+                className="bg-white border rounded-lg pl-8 pr-4 py-1.5 text-xs outline-none w-full sm:w-auto" 
               />
             </div>
           </div>
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                <th className="px-6 py-4">Type</th>
-                <th className="px-6 py-4">Description</th>
-                <th className="px-6 py-4 text-center">AI Category</th>
-                <th className="px-6 py-4 text-center">Date</th>
-                <th className="px-6 py-4 text-right">Amount (LKR)</th>
-                <th className="px-6 py-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filteredTransactions.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
-                    No transactions found
-                  </td>
+
+          {/* Desktop Table - Hidden on mobile */}
+          <div className="hidden md:block">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-4">Type</th>
+                  <th className="px-6 py-4">Description</th>
+                  <th className="px-6 py-4 text-center">AI Category</th>
+                  <th className="px-6 py-4 text-center">Date</th>
+                  <th className="px-6 py-4 text-right">Amount (LKR)</th>
+                  <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
-              ) : (
-                filteredTransactions.map((transaction) => (
-                  <tr key={transaction._id} className="hover:bg-gray-50/50 transition-colors">
-                    {/* Check if this row is being edited */}
-                    {editingId === transaction._id ? (
-                      // Edit Mode Row
-                      <>
-                        <td className="px-6 py-4">
-                          <select
-                            value={editForm.type}
-                            onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
-                            className="border rounded px-2 py-1 text-sm outline-none"
-                          >
-                            <option value="expense">Expense</option>
-                            <option value="income">Income</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            value={editForm.description}
-                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                            className="border rounded px-2 py-1 text-sm w-full outline-none"
-                          />
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <Badge variant={editForm.type === 'income' ? 'success' : 'primary'}>
-                            {transaction.category}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <input
-                            type="date"
-                            value={editForm.date}
-                            onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                            className="border rounded px-2 py-1 text-sm outline-none"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="number"
-                            value={editForm.amount}
-                            onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
-                            className="border rounded px-2 py-1 text-sm w-24 text-right outline-none"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleSaveEdit(transaction._id)}
-                              className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                              title="Save"
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
+                      No transactions found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTransactions.map((transaction) => (
+                    <tr key={transaction._id} className="hover:bg-gray-50/50 transition-colors">
+                      {editingId === transaction._id ? (
+                        <>
+                          <td className="px-6 py-4">
+                            <select
+                              value={editForm.type}
+                              onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                              className="border rounded px-2 py-1 text-sm outline-none"
                             >
-                              <Check size={16} />
-                            </button>
-                            <button
-                              onClick={handleCancelEdit}
-                              className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                              title="Cancel"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </>
-                    ) : (
-                      // Normal View Row
-                      <>
-                        <td className="px-6 py-4">
-                          {transaction.type === 'income' ? (
-                            <ArrowUpRight className="text-green-500 bg-green-50 p-1 rounded" size={24} />
-                          ) : (
-                            <ArrowDownRight className="text-red-500 bg-red-50 p-1 rounded" size={24} />
-                          )}
-                        </td>
-                        <td className="px-6 py-4 font-medium text-gray-700 text-sm">
-                          {transaction.description}
-                        </td>
-                        <td className="px-6 py-4 text-center">
+                              <option value="expense">Expense</option>
+                              <option value="income">Income</option>
+                            </select>
+                          </td>
+                          <td className="px-6 py-4">
+                            <input
+                              type="text"
+                              value={editForm.description}
+                              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                              className="border rounded px-2 py-1 text-sm w-full outline-none"
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <Badge variant={editForm.type === 'income' ? 'success' : 'primary'}>
+                              {transaction.category}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <input
+                              type="date"
+                              value={editForm.date}
+                              onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                              className="border rounded px-2 py-1 text-sm outline-none"
+                            />
+                          </td>
+                          <td className="px-6 py-4">
+                            <input
+                              type="number"
+                              value={editForm.amount}
+                              onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                              className="border rounded px-2 py-1 text-sm w-24 text-right outline-none"
+                            />
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleSaveEdit(transaction._id)}
+                                className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                                title="Save"
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                                title="Cancel"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-6 py-4">
+                            {transaction.type === 'income' ? (
+                              <ArrowUpRight className="text-green-500 bg-green-50 p-1 rounded" size={24} />
+                            ) : (
+                              <ArrowDownRight className="text-red-500 bg-red-50 p-1 rounded" size={24} />
+                            )}
+                          </td>
+                          <td className="px-6 py-4 font-medium text-gray-700 text-sm">
+                            {transaction.description}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <Badge variant={transaction.type === 'income' ? 'success' : 'primary'}>
+                              {transaction.category}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4 text-center text-sm text-gray-500">
+                            {formatDate(transaction.date)}
+                          </td>
+                          <td className={`px-6 py-4 text-right font-bold ${
+                            transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {transaction.type === 'income' ? '+' : '-'} {formatAmount(transaction.amount)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleEditClick(transaction)}
+                                className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                                title="Edit"
+                              >
+                                <Pencil size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteClick(transaction._id)}
+                                className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card View - Hidden on desktop */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {filteredTransactions.length === 0 ? (
+              <div className="px-4 py-8 text-center text-gray-400">
+                No transactions found
+              </div>
+            ) : (
+              filteredTransactions.map((transaction) => (
+                <div key={transaction._id} className="p-4">
+                  {editingId === transaction._id ? (
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <select
+                          value={editForm.type}
+                          onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                          className="border rounded px-2 py-1.5 text-sm outline-none flex-1"
+                        >
+                          <option value="expense">Expense</option>
+                          <option value="income">Income</option>
+                        </select>
+                        <input
+                          type="date"
+                          value={editForm.date}
+                          onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                          className="border rounded px-2 py-1.5 text-sm outline-none flex-1"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        value={editForm.description}
+                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        placeholder="Description"
+                        className="border rounded px-2 py-1.5 text-sm w-full outline-none"
+                      />
+                      <input
+                        type="number"
+                        value={editForm.amount}
+                        onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                        placeholder="Amount"
+                        className="border rounded px-2 py-1.5 text-sm w-full outline-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSaveEdit(transaction._id)}
+                          className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-medium"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <div className="pt-1">
+                        {transaction.type === 'income' ? (
+                          <ArrowUpRight className="text-green-500 bg-green-50 p-1 rounded" size={24} />
+                        ) : (
+                          <ArrowDownRight className="text-red-500 bg-red-50 p-1 rounded" size={24} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-800 text-sm truncate">{transaction.description}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <Badge variant={transaction.type === 'income' ? 'success' : 'primary'}>
                             {transaction.category}
                           </Badge>
-                        </td>
-                        <td className="px-6 py-4 text-center text-sm text-gray-500">
-                          {formatDate(transaction.date)}
-                        </td>
-                        <td className={`px-6 py-4 text-right font-bold ${
+                          <span className="text-xs text-gray-400">{formatDate(transaction.date)}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold text-sm ${
                           transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {transaction.type === 'income' ? '+' : '-'} {formatAmount(transaction.amount)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleEditClick(transaction)}
-                              className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                              title="Edit"
-                            >
-                              <Pencil size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClick(transaction._id)}
-                              className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                        </p>
+                        <div className="flex gap-1 mt-2 justify-end">
+                          <button
+                            onClick={() => handleEditClick(transaction)}
+                            className="p-1.5 bg-blue-100 text-blue-600 rounded-lg"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(transaction._id)}
+                            className="p-1.5 bg-red-100 text-red-600 rounded-lg"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         </Card>
       </div>
     </div>
