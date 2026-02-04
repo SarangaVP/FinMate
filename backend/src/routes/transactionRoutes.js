@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { createTransaction, getTransactions, updateTransaction, deleteTransaction } = require('../controllers/transactionController');
+const { createTransaction, getTransactions, updateTransaction, deleteTransaction, getDashboardSummary } = require('../controllers/transactionController');
 const { protect } = require('../middleware/authMiddleware');
 
 // All transaction routes are protected
+router.get('/summary', protect, getDashboardSummary);
 router.post('/', protect, createTransaction);
 router.get('/', protect, getTransactions);
 router.put('/:id', protect, updateTransaction);

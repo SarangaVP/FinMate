@@ -1,5 +1,6 @@
 const Transaction = require('../models/Transaction');
 const { analyzeTransaction } = require('../services/aiService');
+const mongoose = require('mongoose');
 
 // @desc    Create a new transaction with AI categorization
 // @route   POST /api/transactions
@@ -84,6 +85,47 @@ exports.deleteTransaction = async (req, res) => {
         }
 
         res.json({ message: 'Transaction deleted successfully', id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// @desc    Get dashboard summary (totals for income, expense, balance)
+// @route   GET /api/transactions/summary
+exports.getDashboardSummary = async (req, res) => {
+    try {
+        const userId = req.user;
+
+        // Aggregate totals by type
+        const summary = await Transaction.aggregate([
+            { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+            {
+                $group: {
+                    _id: '$type',
+                    total: { $sum: '$amount' }
+                }
+            }
+        ]);
+
+        // Parse results
+        let totalIncome = 0;
+        let totalExpense = 0;
+
+        summary.forEach(item => {
+            if (item._id === 'income') {
+                totalIncome = item.total;
+            } else if (item._id === 'expense') {
+                totalExpense = item.total;
+            }
+        });
+
+        const balance = totalIncome - totalExpense;
+
+        res.json({
+            totalIncome,
+            totalExpense,
+            balance
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
