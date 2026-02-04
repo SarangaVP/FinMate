@@ -219,7 +219,6 @@ const Transactions = () => {
           subtitle="Record your expenses and let AI do the sorting."
         >
           <Button variant="secondary" icon={Filter}>Filter</Button>
-          <Button variant="primary" icon={Plus}>New Entry</Button>
         </PageHeader>
 
         {/* Smart Entry Form */}
