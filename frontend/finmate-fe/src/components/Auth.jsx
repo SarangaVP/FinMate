@@ -1,9 +1,54 @@
 import React, { useState } from 'react';
 import { Wallet, Mail, Lock, User, ArrowRight, Sparkles, TrendingUp, PieChart } from 'lucide-react';
 import { Card, Button, Input } from './ui';
+import { useAuth } from '../context/AuthContext';
 
-const Auth = ({ onLogin }) => {
+const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    primaryCurrency: 'LKR'
+  });
+
+  const { login, register } = useAuth();
+
+  const handleChange = (field) => (e) => {
+    setFormData(prev => ({ ...prev, [field]: e.target.value }));
+    setError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    try {
+      if (isLogin) {
+        await login(formData.email, formData.password);
+      } else {
+        // Register then auto-login
+        await register({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          password: formData.password,
+          primaryCurrency: formData.primaryCurrency
+        });
+        // After successful registration, log them in
+        await login(formData.email, formData.password);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-white font-sans">
@@ -28,31 +73,52 @@ const Auth = ({ onLogin }) => {
               : 'Join FinMate and start tracking your finances smarter.'}
           </p>
 
-          <form className={`${isLogin ? 'space-y-5' : 'space-y-3'}`} onSubmit={(e) => e.preventDefault()}>
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">
+              {error}
+            </div>
+          )}
+
+          <form className={`${isLogin ? 'space-y-5' : 'space-y-3'}`} onSubmit={handleSubmit}>
             {!isLogin && (
               <>
-                <Input 
-                  label="First Name"
-                  type="text"
-                  icon={User}
-                  compact
-                />
-                <Input 
-                  label="Last Name"
-                  type="text"
-                  icon={User}
-                  compact
-                />
+                <div className="relative">
+                  <User className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                  <input 
+                    type="text"
+                    value={formData.firstName}
+                    onChange={handleChange('firstName')}
+                    placeholder="First Name"
+                    required
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 pl-12 pr-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm"
+                  />
+                </div>
+                <div className="relative">
+                  <User className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                  <input 
+                    type="text"
+                    value={formData.lastName}
+                    onChange={handleChange('lastName')}
+                    placeholder="Last Name"
+                    required
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 pl-12 pr-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm"
+                  />
+                </div>
               </>
             )}
 
-            <Input 
-              label="Email Address"
-              type="email"
-              icon={Mail}
-              placeholder="name@example.com"
-              compact={!isLogin}
-            />
+            <div className="relative">
+              <Mail className="absolute left-4 top-3.5 text-gray-400" size={18} />
+              <input 
+                type="email"
+                value={formData.email}
+                onChange={handleChange('email')}
+                placeholder="name@example.com"
+                required
+                className={`w-full bg-gray-50 border border-gray-100 rounded-2xl ${isLogin ? 'py-3.5' : 'py-3'} pl-12 pr-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm`}
+              />
+            </div>
 
             <div className="space-y-1">
               <div className="flex justify-between items-center px-1">
@@ -66,8 +132,12 @@ const Auth = ({ onLogin }) => {
               <div className="relative">
                 <Lock className="absolute left-4 top-3.5 text-gray-400" size={18} />
                 <input 
-                  type="password" 
-                  placeholder="••••••••" 
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange('password')}
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
                   className={`w-full bg-gray-50 border border-gray-100 rounded-2xl ${isLogin ? 'py-3.5' : 'py-3'} pl-12 pr-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm`}
                 />
               </div>
@@ -76,18 +146,22 @@ const Auth = ({ onLogin }) => {
             <Button 
               variant="primary" 
               size={isLogin ? 'xl' : 'lg'}
-              icon={ArrowRight}
+              icon={isLoading ? null : ArrowRight}
               className={`w-full ${isLogin ? 'mt-8' : 'mt-6'}`}
-              onClick={onLogin}
+              disabled={isLoading}
+              type="submit"
             >
-              {isLogin ? 'Sign In' : 'Get Started'}
+              {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Get Started')}
             </Button>
           </form>
 
           <p className={`${isLogin ? 'mt-8' : 'mt-6'} text-center text-sm text-gray-500`}>
             {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
             <button 
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError('');
+              }}
               className="text-blue-600 font-bold hover:underline"
             >
               {isLogin ? 'Sign Up Free' : 'Sign In Now'}

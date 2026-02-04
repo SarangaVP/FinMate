@@ -6,6 +6,7 @@ const TransactionSchema = new mongoose.Schema({
     description: { type: String, required: true },
     category: { type: String, default: 'Uncategorized' },
     type: { type: String, enum: ['income', 'expense'], required: true },
+    date: { type: Date, default: Date.now },
     groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
     goalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Goal' }
 }, { timestamps: true });

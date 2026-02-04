@@ -12,8 +12,11 @@ import {
   Wallet,
   Search
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
+  const { user, logout } = useAuth();
+
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'Transactions', path: '/transactions', icon: <Receipt size={20} /> },
@@ -21,7 +24,7 @@ const Navbar = () => {
       name: 'Recurring', 
       path: '/recurring', 
       icon: <CalendarClock size={20} />, 
-      alert: '3 Due' // Visual indicator for Automated Monitoring
+      alert: '3 Due'
     },
     { name: 'Budgets & Goals', path: '/budgets-goals', icon: <Target size={20} /> },
     { name: 'Shared Groups', path: '/shared', icon: <Users size={20} /> },
@@ -29,8 +32,22 @@ const Navbar = () => {
     { name: 'Profile', path: '/profile', icon: <UserCircle size={20} /> },
   ];
 
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout();
+    }
+  };
+
+  // Get user initials for avatar
+  const getInitials = () => {
+    if (user?.name) {
+      return user.name.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
+
   return (
-    <nav className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-50">
+    <nav className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 hidden lg:flex flex-col z-50">
       
       {/* 1. Branding Section */}
       <div className="p-6">
@@ -41,7 +58,6 @@ const Navbar = () => {
           <span className="text-xl font-bold text-gray-800 tracking-tight italic">FinMate</span>
         </div>
 
-        {/* Search Bar - Addresses GUI Requirement for easy navigation */}
         <div className="relative group">
           <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500" size={16} />
           <input 
@@ -72,7 +88,6 @@ const Navbar = () => {
             </div>
             {item.alert && (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                // Dynamic styling for alerts
                 'bg-amber-100 text-amber-600 group-hover:bg-white group-hover:text-blue-600'
               }`}>
                 {item.alert}
@@ -84,22 +99,25 @@ const Navbar = () => {
 
       {/* 3. Footer: Balance & User Section */}
       <div className="p-4 border-t border-gray-100 space-y-4">
-        {/* Mini Balance Widget - "In My Pocket" Feature */}
         <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
           <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">In My Pocket</p>
-          <p className="text-sm font-bold text-gray-800">LKR 45,250.00</p>
+          <p className="text-sm font-bold text-gray-800">{user?.currency || 'LKR'} 45,250.00</p>
         </div>
 
         {/* User Profile Summary */}
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="w-10 h-10 rounded-full bg-linear-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-            SM
+            {getInitials()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-gray-800 truncate">Saranga Malshan</p>
+            <p className="text-sm font-bold text-gray-800 truncate">{user?.name || 'User'}</p>
             <p className="text-[10px] text-green-600 font-medium">Member</p>
           </div>
-          <button className="text-gray-400 hover:text-red-500 transition-colors">
+          <button 
+            onClick={handleLogout}
+            className="text-gray-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-lg"
+            title="Logout"
+          >
             <LogOut size={18} />
           </button>
         </div>
