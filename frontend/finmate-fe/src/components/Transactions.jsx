@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Sparkles, ArrowDownRight, ArrowUpRight, Pencil, Trash2, X, Check } from 'lucide-react';
+import { Plus, Search, Filter, Sparkles, ArrowDownRight, ArrowUpRight, Pencil, Trash2, X, Check, CheckCircle, AlertCircle } from 'lucide-react';
 import { Card, Button, Input, PageHeader, Badge } from './ui';
 import API from '../utils/api';
 
@@ -13,6 +13,12 @@ const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Toast notification state
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null });
+
   // Edit state
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
@@ -48,9 +54,14 @@ const Transactions = () => {
     }
   };
 
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
   const handleFormSubmit = async () => {
     if (!description || !amount) {
-      alert('Please fill in description and amount');
+      showToast('Please fill in description and amount', 'error');
       return;
     }
     
@@ -65,7 +76,7 @@ const Transactions = () => {
 
       const response = await API.post('/transactions', payload);
       setAiCategory(response.data.category);
-      alert(`Saved! AI categorized this as: ${response.data.category}`);
+      showToast(`Saved! AI categorized this as: ${response.data.category}`, 'success');
       
       // Refresh transaction list
       fetchTransactions();
@@ -76,7 +87,7 @@ const Transactions = () => {
       setAiCategory('Pending...');
     } catch (error) {
       console.error("Submission failed", error);
-      alert('Failed to save transaction');
+      showToast('Failed to save transaction', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +113,7 @@ const Transactions = () => {
   // Save edited transaction
   const handleSaveEdit = async (id) => {
     if (!editForm.description || !editForm.amount) {
-      alert('Please fill in description and amount');
+      showToast('Please fill in description and amount', 'error');
       return;
     }
 
@@ -114,29 +125,35 @@ const Transactions = () => {
         date: editForm.date
       });
       
-      alert('Transaction updated successfully!');
+      showToast('Transaction updated successfully!', 'success');
       setEditingId(null);
       fetchTransactions();
     } catch (error) {
       console.error('Failed to update transaction', error);
-      alert('Failed to update transaction');
+      showToast('Failed to update transaction', 'error');
     }
   };
 
   // Delete a transaction
-  const handleDelete = async (id) => {
-    const confirmDelete = window.confirm('Are you sure you want to delete this transaction?');
-    
-    if (confirmDelete) {
-      try {
-        await API.delete(`/transactions/${id}`);
-        alert('Transaction deleted successfully!');
-        fetchTransactions();
-      } catch (error) {
-        console.error('Failed to delete transaction', error);
-        alert('Failed to delete transaction');
-      }
+  const handleDeleteClick = (id) => {
+    setDeleteConfirm({ show: true, id });
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await API.delete(`/transactions/${deleteConfirm.id}`);
+      showToast('Transaction deleted successfully!', 'success');
+      fetchTransactions();
+    } catch (error) {
+      console.error('Failed to delete transaction', error);
+      showToast('Failed to delete transaction', 'error');
+    } finally {
+      setDeleteConfirm({ show: false, id: null });
     }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirm({ show: false, id: null });
   };
 
   // Filter transactions based on search
@@ -152,8 +169,50 @@ const Transactions = () => {
     }).format(amount);
   };
 
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-LK', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg transition-all ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Delete Transaction</h3>
+            <p className="text-gray-600 text-sm mb-6">Are you sure you want to delete this transaction? This action cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelDelete}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto">
         <PageHeader 
           title="Transactions" 
@@ -235,6 +294,7 @@ const Transactions = () => {
                 <th className="px-6 py-4">Type</th>
                 <th className="px-6 py-4">Description</th>
                 <th className="px-6 py-4 text-center">AI Category</th>
+                <th className="px-6 py-4 text-center">Date</th>
                 <th className="px-6 py-4 text-right">Amount (LKR)</th>
                 <th className="px-6 py-4 text-center">Actions</th>
               </tr>
@@ -242,7 +302,7 @@ const Transactions = () => {
             <tbody className="divide-y divide-gray-50">
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
                     No transactions found
                   </td>
                 </tr>
@@ -275,6 +335,14 @@ const Transactions = () => {
                           <Badge variant={editForm.type === 'income' ? 'success' : 'primary'}>
                             {transaction.category}
                           </Badge>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <input
+                            type="date"
+                            value={editForm.date}
+                            onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                            className="border rounded px-2 py-1 text-sm outline-none"
+                          />
                         </td>
                         <td className="px-6 py-4">
                           <input
@@ -321,6 +389,9 @@ const Transactions = () => {
                             {transaction.category}
                           </Badge>
                         </td>
+                        <td className="px-6 py-4 text-center text-sm text-gray-500">
+                          {formatDate(transaction.date)}
+                        </td>
                         <td className={`px-6 py-4 text-right font-bold ${
                           transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                         }`}>
@@ -336,7 +407,7 @@ const Transactions = () => {
                               <Pencil size={16} />
                             </button>
                             <button
-                              onClick={() => handleDelete(transaction._id)}
+                              onClick={() => handleDeleteClick(transaction._id)}
                               className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
                               title="Delete"
                             >
