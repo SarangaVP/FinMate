@@ -1,14 +1,46 @@
-import React from 'react';
-import { Wallet, BrainCircuit, ArrowUpCircle, ArrowDownCircle, PieChart } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wallet, BrainCircuit, ArrowUpCircle, ArrowDownCircle, PieChart, Loader2 } from 'lucide-react';
 import { Card, CardHeader } from './ui';
+import API from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
+  const { user } = useAuth();
+  const [summary, setSummary] = useState({
+    totalIncome: 0,
+    totalExpense: 0,
+    balance: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchSummary();
+  }, []);
+
+  const fetchSummary = async () => {
+    try {
+      const response = await API.get('/transactions/summary');
+      setSummary(response.data);
+    } catch (error) {
+      console.error('Failed to fetch summary', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatAmount = (amount) => {
+    return new Intl.NumberFormat('en-LK', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen font-sans">
       {/* Header Area */}
       <div className="flex justify-between items-center mb-8">
         <div className="text-left">
-          <h1 className="text-3xl font-bold text-gray-800">Hello, Saranga</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Hello, {user?.name || 'User'}</h1>
           <p className="text-gray-500">Here is your financial wellness summary for today.</p>
         </div>
         <div className="bg-white p-3 rounded-full shadow-sm">
@@ -26,11 +58,16 @@ const Dashboard = () => {
             </div>
             <span className="text-gray-600 font-medium text-sm">In My Pocket</span>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 text-left">LKR 45,250.00</h2>
-          <div className="flex items-center gap-2 mt-4 text-sm">
-            <span className="text-green-500 flex items-center">↑ 4.5%</span>
-            <span className="text-gray-400">vs last week</span>
-          </div>
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-gray-400">
+              <Loader2 size={20} className="animate-spin" />
+              <span>Loading...</span>
+            </div>
+          ) : (
+            <h2 className={`text-3xl font-bold text-left ${summary.balance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+              LKR {formatAmount(summary.balance)}
+            </h2>
+          )}
         </Card>
 
         {/* AI Insight Card (Addresses SRS requirement for Intelligent Summarization) */}
@@ -62,20 +99,28 @@ const Dashboard = () => {
                 <ArrowUpCircle className="text-green-500" />
                 <div className="text-left">
                   <p className="text-sm font-semibold">Income</p>
-                  <p className="text-xs text-gray-400">Monthly Salary</p>
+                  <p className="text-xs text-gray-400">Total Received</p>
                 </div>
               </div>
-              <span className="font-bold text-green-600">LKR 120,000</span>
+              {isLoading ? (
+                <Loader2 size={16} className="animate-spin text-gray-400" />
+              ) : (
+                <span className="font-bold text-green-600">LKR {formatAmount(summary.totalIncome)}</span>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <ArrowDownCircle className="text-red-500" />
                 <div className="text-left">
                   <p className="text-sm font-semibold">Expenses</p>
-                  <p className="text-xs text-gray-400">Fixed & Variable</p>
+                  <p className="text-xs text-gray-400">Total Spent</p>
                 </div>
               </div>
-              <span className="font-bold text-red-600">LKR 74,750</span>
+              {isLoading ? (
+                <Loader2 size={16} className="animate-spin text-gray-400" />
+              ) : (
+                <span className="font-bold text-red-600">LKR {formatAmount(summary.totalExpense)}</span>
+              )}
             </div>
           </div>
         </Card>
