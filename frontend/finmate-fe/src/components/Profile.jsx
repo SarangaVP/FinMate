@@ -129,9 +129,10 @@ const Profile = () => {
               <p className="text-[11px] text-red-700 leading-relaxed mb-4">
                 Deleting your account will permanently erase all your transaction history, shared group data, and saving goals.
               </p>
-              <Button variant="danger" size="md" icon={Trash2} className="w-full bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white">
+              <button className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors">
+                <Trash2 size={16} />
                 Delete My Account
-              </Button>
+              </button>
             </Card>
           </div>
 
