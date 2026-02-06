@@ -12,6 +12,13 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState({ type: '', text: '' });
 
   // Fetch profile data on mount
   useEffect(() => {
@@ -85,6 +92,59 @@ const Profile = () => {
       setMessage({ type: 'error', text: 'An error occurred while updating profile' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleUpdatePassword = async () => {
+    setPasswordMessage({ type: '', text: '' });
+
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      setPasswordMessage({ type: 'error', text: 'Please fill in all password fields' });
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordMessage({ type: 'error', text: 'New passwords do not match' });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordMessage({ type: 'error', text: 'New password must be at least 6 characters' });
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/users/change-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setPasswordMessage({ type: 'success', text: 'Password updated successfully!' });
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        setPasswordMessage({ type: 'error', text: data.message || 'Failed to update password' });
+      }
+    } catch (error) {
+      setPasswordMessage({ type: 'error', text: 'An error occurred while updating password' });
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -214,26 +274,45 @@ const Profile = () => {
                 <CardHeader icon={KeyRound} title="Update Password" />
               </div>
               <div className="p-6 space-y-4">
+                {passwordMessage.text && (
+                  <div className={`p-3 rounded-lg text-sm ${passwordMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    {passwordMessage.text}
+                  </div>
+                )}
                 <Input 
                   type="password" 
-                  placeholder="Current Password" 
+                  name="currentPassword"
+                  placeholder="Current Password"
+                  value={passwordData.currentPassword}
+                  onChange={handlePasswordChange}
                   compact 
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input 
-                    type="password" 
-                    placeholder="New Password" 
+                    type="password"
+                    name="newPassword"
+                    placeholder="New Password"
+                    value={passwordData.newPassword}
+                    onChange={handlePasswordChange}
                     compact 
                   />
                   <Input 
-                    type="password" 
-                    placeholder="Confirm New Password" 
+                    type="password"
+                    name="confirmPassword"
+                    placeholder="Confirm New Password"
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordChange}
                     compact 
                   />
                 </div>
                 <div className="flex justify-end pt-2">
-                  <Button variant="primary" size="md">
-                    Save Changes
+                  <Button 
+                    variant="primary" 
+                    size="md"
+                    onClick={handleUpdatePassword}
+                    disabled={savingPassword}
+                  >
+                    {savingPassword ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </div>
               </div>
