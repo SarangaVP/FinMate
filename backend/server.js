@@ -7,6 +7,7 @@ const connectDB = require('./src/config/db');
 const authRoutes = require('./src/routes/authRoutes');
 const transactionRoutes = require('./src/routes/transactionRoutes');
 const userRoutes = require('./src/routes/userRoutes');
+const recurringRoutes = require('./src/routes/recurringRoutes');
 
 connectDB();
 
@@ -26,6 +27,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/recurring', recurringRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).json({ 
