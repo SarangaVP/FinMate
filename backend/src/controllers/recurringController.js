@@ -27,3 +27,13 @@ exports.addRecurringPayment = async (req, res) => {
         res.status(500).json({ error: "Failed to schedule payment" });
     }
 };
+
+exports.getRecurringPayments = async (req, res) => {
+    try {
+        const payments = await RecurringPayment.find({ userId: req.user }).sort({ nextDueDate: 1 });
+        res.status(200).json({ data: payments });
+    } catch (err) {
+        console.error("Get Recurring Error:", err.message);
+        res.status(500).json({ error: "Failed to fetch recurring payments" });
+    }
+};
