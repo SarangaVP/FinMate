@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarClock, BellRing, ArrowRight, RefreshCw, AlertCircle, X } from 'lucide-react';
+import { CalendarClock, BellRing, ArrowRight, RefreshCw, AlertCircle, X, Pencil, Trash2, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge } from './ui';
 import API from '../utils/api';
 
@@ -17,9 +17,30 @@ const Recurring = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Edit state
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    description: '',
+    amount: '',
+    paymentType: '',
+    frequency: '',
+    startDate: ''
+  });
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null });
+
+  // Toast notification state
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
   useEffect(() => {
     fetchPayments();
   }, []);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
 
   const fetchPayments = async () => {
     try {
@@ -51,12 +72,71 @@ const Recurring = () => {
 
       setShowModal(false);
       setFormData({ description: '', amount: '', paymentType: 'Subscription', frequency: 'Monthly', startDate: '' });
+      showToast('Recurring payment added successfully!');
       fetchPayments();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to add payment');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Edit handlers
+  const handleEditClick = (sub) => {
+    setEditingId(sub._id);
+    setEditForm({
+      description: sub.description,
+      amount: sub.amount,
+      paymentType: sub.paymentType,
+      frequency: sub.frequency,
+      startDate: sub.nextDueDate ? sub.nextDueDate.split('T')[0] : ''
+    });
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      await API.put(`/recurring/${editingId}`, {
+        ...editForm,
+        amount: parseFloat(editForm.amount),
+        nextDueDate: editForm.startDate
+      });
+      setEditingId(null);
+      showToast('Recurring payment updated successfully!');
+      fetchPayments();
+    } catch (err) {
+      showToast('Failed to update payment', 'error');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ description: '', amount: '', paymentType: '', frequency: '', startDate: '' });
+  };
+
+  // Delete handlers
+  const handleDeleteClick = (id) => {
+    setDeleteConfirm({ show: true, id });
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await API.delete(`/recurring/${deleteConfirm.id}`);
+      showToast('Recurring payment deleted successfully!');
+      fetchPayments();
+    } catch (err) {
+      showToast('Failed to delete payment', 'error');
+    } finally {
+      setDeleteConfirm({ show: false, id: null });
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirm({ show: false, id: null });
   };
 
   const getStatusVariant = (nextDueDate) => {
@@ -79,6 +159,40 @@ const Recurring = () => {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Delete Recurring Payment</h3>
+            <p className="text-gray-600 text-sm mb-6">Are you sure you want to delete this recurring payment? This action cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelDelete}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-end mb-8 text-left">
@@ -104,28 +218,111 @@ const Recurring = () => {
               subscriptions.map(sub => (
                 <Card 
                   key={sub._id} 
-                  className="p-5 flex items-center justify-between group hover:border-blue-200 transition-all"
+                  className="p-5 group hover:border-blue-200 transition-all"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-blue-50 p-3 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                      <RefreshCw size={20} />
+                  {editingId === sub._id ? (
+                    // Edit Mode
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          name="description"
+                          value={editForm.description}
+                          onChange={handleEditInputChange}
+                          placeholder="Description"
+                          className="border rounded-lg px-3 py-2 text-sm outline-none"
+                        />
+                        <input
+                          type="number"
+                          name="amount"
+                          value={editForm.amount}
+                          onChange={handleEditInputChange}
+                          placeholder="Amount"
+                          className="border rounded-lg px-3 py-2 text-sm outline-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <select
+                          name="paymentType"
+                          value={editForm.paymentType}
+                          onChange={handleEditInputChange}
+                          className="border rounded-lg px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="Subscription">Subscription</option>
+                          <option value="Utility">Utility</option>
+                          <option value="Rent">Rent</option>
+                          <option value="Other">Other</option>
+                        </select>
+                        <select
+                          name="frequency"
+                          value={editForm.frequency}
+                          onChange={handleEditInputChange}
+                          className="border rounded-lg px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="Daily">Daily</option>
+                          <option value="Weekly">Weekly</option>
+                          <option value="Monthly">Monthly</option>
+                          <option value="Yearly">Yearly</option>
+                        </select>
+                        <input
+                          type="date"
+                          name="startDate"
+                          value={editForm.startDate}
+                          onChange={handleEditInputChange}
+                          className="border rounded-lg px-3 py-2 text-sm outline-none"
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={handleCancelEdit}
+                          className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveEdit}
+                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                        >
+                          Save
+                        </button>
+                      </div>
                     </div>
-                    <div className="text-left">
-                      <h4 className="font-bold text-gray-800">{sub.description}</h4>
-                      <p className="text-xs text-gray-500">Next payment: {formatDate(sub.nextDueDate)} • {sub.frequency}</p>
+                  ) : (
+                    // View Mode
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-blue-50 p-3 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                          <RefreshCw size={20} />
+                        </div>
+                        <div className="text-left">
+                          <h4 className="font-bold text-gray-800">{sub.description}</h4>
+                          <p className="text-xs text-gray-500">Next payment: {formatDate(sub.nextDueDate)} • {sub.frequency}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="font-bold text-gray-800 font-mono">LKR {sub.amount.toLocaleString()}</p>
+                          <Badge variant={getStatusVariant(sub.nextDueDate)} size="xs">
+                            {getStatusText(sub.nextDueDate)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleEditClick(sub)}
+                            className="p-2 text-blue-600 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteClick(sub._id)}
+                            className="p-2 text-red-600 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="font-bold text-gray-800 font-mono">LKR {sub.amount.toLocaleString()}</p>
-                      <Badge variant={getStatusVariant(sub.nextDueDate)} size="xs">
-                        {getStatusText(sub.nextDueDate)}
-                      </Badge>
-                    </div>
-                    <button className="p-2 text-gray-300 hover:text-blue-600 transition-colors">
-                      <ArrowRight size={20} />
-                    </button>
-                  </div>
+                  )}
                 </Card>
               ))
             )}

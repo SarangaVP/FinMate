@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { addRecurringPayment, getRecurringPayments } = require('../controllers/recurringController');
+const { addRecurringPayment, getRecurringPayments, updateRecurring, deleteRecurring } = require('../controllers/recurringController');
 const { protect } = require('../middleware/authMiddleware');
 
 router.get('/', protect, getRecurringPayments);
