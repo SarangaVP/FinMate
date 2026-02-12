@@ -3,10 +3,9 @@ const router = express.Router();
 const { addRecurringPayment, getRecurringPayments } = require('../controllers/recurringController');
 const { protect } = require('../middleware/authMiddleware');
 
-// GET /api/recurring/
 router.get('/', protect, getRecurringPayments);
-
-// POST /api/recurring/add
 router.post('/add', protect, addRecurringPayment);
+router.put('/:id', protect, updateRecurring);
+router.delete('/:id', protect, deleteRecurring);
 
 module.exports = router;
