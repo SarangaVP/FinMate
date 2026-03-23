@@ -59,9 +59,7 @@ const Navbar = () => {
   ];
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
-    }
+    logout();
   };
 
   // Get user initials for avatar
