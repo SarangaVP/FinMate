@@ -1,4 +1,21 @@
 const RecurringPayment = require('../models/RecurringPayment');
+const Transaction = require('../models/Transaction');
+
+const calculateNextDueDate = (currentDueDate, frequency) => {
+    const nextDate = new Date(currentDueDate);
+
+    if (frequency === 'Daily') {
+        nextDate.setDate(nextDate.getDate() + 1);
+    } else if (frequency === 'Weekly') {
+        nextDate.setDate(nextDate.getDate() + 7);
+    } else if (frequency === 'Monthly') {
+        nextDate.setMonth(nextDate.getMonth() + 1);
+    } else if (frequency === 'Yearly') {
+        nextDate.setFullYear(nextDate.getFullYear() + 1);
+    }
+
+    return nextDate;
+};
 
 exports.addRecurringPayment = async (req, res) => {
     try {
@@ -66,5 +83,49 @@ exports.deleteRecurring = async (req, res) => {
         res.status(200).json({ message: "Recurring payment deleted" });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+};
+
+exports.payRecurring = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const payment = await RecurringPayment.findOne({ _id: id, userId: req.user });
+
+        if (!payment) {
+            return res.status(404).json({ message: 'Payment not found' });
+        }
+
+        const transaction = new Transaction({
+            userId: req.user,
+            amount: payment.amount,
+            description: `${payment.description} (Recurring Payment)`,
+            category: payment.paymentType || 'Uncategorized',
+            type: 'expense',
+            date: new Date()
+        });
+
+        await transaction.save();
+
+        let nextDueDate = calculateNextDueDate(payment.nextDueDate, payment.frequency);
+        const now = new Date();
+
+        while (nextDueDate <= now) {
+            nextDueDate = calculateNextDueDate(nextDueDate, payment.frequency);
+        }
+
+        payment.nextDueDate = nextDueDate;
+        await payment.save();
+
+        res.status(200).json({
+            message: 'Recurring payment paid successfully',
+            data: {
+                payment,
+                transaction
+            }
+        });
+    } catch (err) {
+        console.error('Pay Recurring Error:', err.message);
+        res.status(500).json({ error: 'Failed to pay recurring payment' });
     }
 };

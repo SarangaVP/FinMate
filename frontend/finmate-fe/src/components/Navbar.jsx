@@ -23,6 +23,16 @@ const Navbar = () => {
 
   useEffect(() => {
     fetchBalance();
+
+    const handleTransactionsUpdated = () => {
+      fetchBalance();
+    };
+
+    window.addEventListener('transactions:updated', handleTransactionsUpdated);
+
+    return () => {
+      window.removeEventListener('transactions:updated', handleTransactionsUpdated);
+    };
   }, []);
 
   const fetchBalance = async () => {

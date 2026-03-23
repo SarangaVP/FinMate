@@ -32,6 +32,7 @@ const Recurring = () => {
 
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [payingId, setPayingId] = useState(null);
 
   useEffect(() => {
     fetchPayments();
@@ -137,6 +138,20 @@ const Recurring = () => {
 
   const handleCancelDelete = () => {
     setDeleteConfirm({ show: false, id: null });
+  };
+
+  const handlePayRecurring = async (id) => {
+    try {
+      setPayingId(id);
+      await API.post(`/recurring/${id}/pay`);
+      showToast('Payment recorded and wallet updated!');
+      fetchPayments();
+      window.dispatchEvent(new Event('transactions:updated'));
+    } catch (err) {
+      showToast(err.response?.data?.error || 'Failed to pay recurring payment', 'error');
+    } finally {
+      setPayingId(null);
+    }
   };
 
   const getStatusVariant = (nextDueDate) => {
@@ -307,6 +322,13 @@ const Recurring = () => {
                           </Badge>
                         </div>
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handlePayRecurring(sub._id)}
+                            disabled={payingId === sub._id}
+                            className="px-3 py-2 text-xs font-semibold text-green-700 bg-green-100 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {payingId === sub._id ? 'Paying...' : 'Pay'}
+                          </button>
                           <button 
                             onClick={() => handleEditClick(sub)}
                             className="p-2 text-blue-600 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
