@@ -11,4 +11,23 @@ API.interceptors.request.use((req) => {
     return req;
 });
 
+API.interceptors.response.use(
+    (response) => {
+        const method = response.config?.method?.toLowerCase();
+        const url = response.config?.url || '';
+
+        const isMutation = method === 'post' || method === 'put' || method === 'delete';
+        const affectsBalance =
+            url.startsWith('/transactions') ||
+            /\/recurring\/[^/]+\/pay$/.test(url);
+
+        if (isMutation && affectsBalance && typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('transactions:updated'));
+        }
+
+        return response;
+    },
+    (error) => Promise.reject(error)
+);
+
 export default API;

@@ -146,7 +146,6 @@ const Recurring = () => {
       await API.post(`/recurring/${id}/pay`);
       showToast('Payment recorded and wallet updated!');
       fetchPayments();
-      window.dispatchEvent(new Event('transactions:updated'));
     } catch (err) {
       showToast(err.response?.data?.error || 'Failed to pay recurring payment', 'error');
     } finally {

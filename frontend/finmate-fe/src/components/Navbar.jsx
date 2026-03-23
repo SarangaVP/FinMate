@@ -28,10 +28,24 @@ const Navbar = () => {
       fetchBalance();
     };
 
+    const handleFocus = () => {
+      fetchBalance();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchBalance();
+      }
+    };
+
     window.addEventListener('transactions:updated', handleTransactionsUpdated);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('transactions:updated', handleTransactionsUpdated);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
