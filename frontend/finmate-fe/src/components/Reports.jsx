@@ -28,6 +28,64 @@ const Reports = () => {
       maximumFractionDigits: 2
     }).format(value || 0);
 
+  const escapeCsvCell = (value) => {
+    const text = String(value ?? '');
+    if (/[",\n]/.test(text)) {
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+  };
+
+  const handleDownloadCsv = () => {
+    const rows = [];
+
+    rows.push(['FinMate Reports Export']);
+    rows.push([`Generated At`, new Date().toLocaleString('en-LK')]);
+    rows.push([]);
+
+    rows.push(['Summary']);
+    rows.push(['Total Income', analytics.summary.totalIncome]);
+    rows.push(['Total Expense', analytics.summary.totalExpense]);
+    rows.push(['Balance', analytics.summary.balance]);
+    rows.push(['Total Transactions', analytics.summary.totalTransactions]);
+    rows.push([]);
+
+    rows.push(['Insights']);
+    rows.push(['Top Spending Category', analytics.insights.topCategory]);
+    rows.push(['Top Category Spend', analytics.insights.topCategorySpend]);
+    rows.push(['Most Expensive Day', analytics.insights.mostExpensiveDay]);
+    rows.push([]);
+
+    rows.push(['Spending by Category']);
+    rows.push(['Category', 'Amount', 'Transactions']);
+    analytics.categories.forEach((item) => {
+      rows.push([item.category, item.total, item.count]);
+    });
+    rows.push([]);
+
+    rows.push(['Monthly Trend']);
+    rows.push(['Month', 'Income', 'Expense']);
+    analytics.monthlyTrend.forEach((item) => {
+      rows.push([item.label, item.income, item.expense]);
+    });
+
+    const csvContent = rows
+      .map((row) => row.map((cell) => escapeCsvCell(cell)).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+
+    link.href = url;
+    link.download = `finmate-reports-${timestamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const fetchAnalytics = async () => {
     setLoading(true);
     setError('');
@@ -75,9 +133,14 @@ const Reports = () => {
             <h1 className="text-2xl font-bold text-gray-800">Reports & Analytics</h1>
             <p className="text-gray-500 text-sm">Live insights from your income, spending, and category behavior.</p>
           </div>
-          <Button variant="secondary" icon={Download} onClick={fetchAnalytics} disabled={loading}>
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={fetchAnalytics} disabled={loading}>
+              Refresh
+            </Button>
+            <Button variant="primary" icon={Download} onClick={handleDownloadCsv} disabled={loading}>
+              Download CSV
+            </Button>
+          </div>
         </div>
 
         {error && (
