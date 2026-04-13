@@ -7,8 +7,7 @@ const TransactionSchema = new mongoose.Schema({
     category: { type: String, default: 'Uncategorized' },
     type: { type: String, enum: ['income', 'expense'], required: true },
     date: { type: Date, default: Date.now },
-    groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
-    goalId: { type: mongoose.Schema.Types.ObjectId, ref: 'Goal' }
+    groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Transaction', TransactionSchema);

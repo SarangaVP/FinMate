@@ -7,6 +7,7 @@ export const budgetGoalsApi = {
 
   getGoals: () => API.get('/planning/goals'),
   createGoal: (payload) => API.post('/planning/goals', payload),
+  updateGoal: (id, payload) => API.put(`/planning/goals/${id}`, payload),
   contributeToGoal: (id, amount) => API.put(`/planning/goals/${id}/contribute`, { amount }),
   deleteGoal: (id) => API.delete(`/planning/goals/${id}`)
 };
