@@ -1,122 +1,373 @@
-import React from 'react';
-import { Target, PieChart, AlertTriangle, Plus, Flame } from 'lucide-react';
-import { Card, CardHeader, Button, ProgressBar } from './ui';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Target, PieChart, AlertTriangle, Plus, Flame, Trash2 } from 'lucide-react';
+import { Card, CardHeader, Button, ProgressBar, Input } from './ui';
+import { budgetGoalsApi } from '../api/budgetGoalsApi';
 
 const BudgetsGoals = () => {
-  const categories = [
-    { name: 'Food & Groceries', spent: 18500, limit: 20000, color: 'bg-amber-500' },
-    { name: 'Transport', spent: 4200, limit: 10000, color: 'bg-blue-500' },
-    { name: 'Entertainment', spent: 12000, limit: 10000, color: 'bg-red-500' }, // Over budget
-  ];
+  const [budgets, setBudgets] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-  const goals = [
-    { name: 'New Laptop', current: 45000, target: 150000, deadline: 'Dec 2025' },
-    { name: 'Emergency Fund', current: 80000, target: 100000, deadline: 'Aug 2026' },
-  ];
+  const [budgetForm, setBudgetForm] = useState({
+    category: '',
+    spendingLimit: '',
+    timeFrame: 'Monthly'
+  });
+
+  const [goalForm, setGoalForm] = useState({
+    goalName: '',
+    targetValue: '',
+    currentSavedAmount: '0',
+    targetDate: ''
+  });
+
+  const [contributionAmount, setContributionAmount] = useState('5000');
+
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat('en-LK', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value || 0);
+
+  const primaryGoal = useMemo(() => goals[0] || null, [goals]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [budgetsResponse, goalsResponse] = await Promise.all([
+        budgetGoalsApi.getBudgets(),
+        budgetGoalsApi.getGoals()
+      ]);
+      setBudgets(budgetsResponse.data || []);
+      setGoals(goalsResponse.data || []);
+    } catch (fetchError) {
+      setError(fetchError?.response?.data?.error || 'Failed to load budgets and goals');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleCreateBudget = async () => {
+    if (!budgetForm.category || !budgetForm.spendingLimit) {
+      setError('Please enter budget category and spending limit');
+      return;
+    }
+
+    setActionLoading(true);
+    setError('');
+    try {
+      await budgetGoalsApi.createBudget({
+        category: budgetForm.category,
+        spendingLimit: Number(budgetForm.spendingLimit),
+        timeFrame: budgetForm.timeFrame
+      });
+      setBudgetForm({ category: '', spendingLimit: '', timeFrame: 'Monthly' });
+      setMessage('Budget created');
+      fetchData();
+    } catch (createError) {
+      setError(createError?.response?.data?.error || 'Failed to create budget');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCreateGoal = async () => {
+    if (!goalForm.goalName || !goalForm.targetValue) {
+      setError('Please enter goal name and target value');
+      return;
+    }
+
+    setActionLoading(true);
+    setError('');
+    try {
+      await budgetGoalsApi.createGoal({
+        goalName: goalForm.goalName,
+        targetValue: Number(goalForm.targetValue),
+        currentSavedAmount: Number(goalForm.currentSavedAmount || 0),
+        targetDate: goalForm.targetDate || undefined
+      });
+      setGoalForm({ goalName: '', targetValue: '', currentSavedAmount: '0', targetDate: '' });
+      setMessage('Saving goal created');
+      fetchData();
+    } catch (createError) {
+      setError(createError?.response?.data?.error || 'Failed to create saving goal');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteBudget = async (id) => {
+    setActionLoading(true);
+    setError('');
+    try {
+      await budgetGoalsApi.deleteBudget(id);
+      setMessage('Budget deleted');
+      fetchData();
+    } catch (deleteError) {
+      setError(deleteError?.response?.data?.error || 'Failed to delete budget');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteGoal = async (id) => {
+    setActionLoading(true);
+    setError('');
+    try {
+      await budgetGoalsApi.deleteGoal(id);
+      setMessage('Saving goal deleted');
+      fetchData();
+    } catch (deleteError) {
+      setError(deleteError?.response?.data?.error || 'Failed to delete saving goal');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleQuickContribution = async () => {
+    if (!primaryGoal) {
+      setError('Create a saving goal first');
+      return;
+    }
+
+    const amount = Number(contributionAmount);
+    if (!amount || amount <= 0) {
+      setError('Contribution amount must be greater than 0');
+      return;
+    }
+
+    setActionLoading(true);
+    setError('');
+    try {
+      await budgetGoalsApi.contributeToGoal(primaryGoal._id, amount);
+      setMessage(`LKR ${formatCurrency(amount)} added to ${primaryGoal.goalName}`);
+      fetchData();
+    } catch (contributionError) {
+      setError(contributionError?.response?.data?.error || 'Failed to apply contribution');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-end mb-8 text-left">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-8 text-left">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Budgets & Saving Goals</h1>
             <p className="text-gray-500 text-sm">Set limits and track your journey to financial milestones.</p>
           </div>
-          <Button variant="primary" icon={Plus}>
-            Create New
+          <Button variant="primary" icon={Plus} onClick={fetchData} disabled={loading || actionLoading}>
+            Refresh
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* 1. Monthly Budgets Section */}
+        {error && <p className="mb-4 text-sm text-red-500 font-medium">{error}</p>}
+        {!error && message && <p className="mb-4 text-sm text-green-600 font-medium">{message}</p>}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <Card className="p-6">
-            <CardHeader icon={PieChart} title="Category Budgets" />
-            
-            <div className="space-y-8 mt-6">
-              {categories.map((cat, idx) => {
-                const percent = (cat.spent / cat.limit) * 100;
-                const isOver = cat.spent > cat.limit;
-                
-                return (
-                  <div key={idx}>
-                    <div className="flex justify-between items-end mb-2">
-                      <div className='text-left'>
-                        <p className="text-sm font-bold text-gray-700">{cat.name}</p>
-                        <p className="text-xs text-gray-400">
-                          LKR {cat.spent.toLocaleString()} of {cat.limit.toLocaleString()}
-                        </p>
-                      </div>
-                      <span className={`text-xs font-bold ${isOver ? 'text-red-500' : 'text-gray-500'}`}>
-                        {percent.toFixed(0)}%
-                      </span>
-                    </div>
-                    <ProgressBar value={cat.spent} max={cat.limit} color={cat.color} />
-                    {isOver && (
-                      <div className="flex items-center gap-1 mt-2 text-red-500">
-                        <AlertTriangle size={12} />
-                        <span className="text-[10px] font-bold uppercase">Over Budget Alert</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <CardHeader icon={PieChart} title="Create Budget" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Input
+                label="Category"
+                placeholder="Food"
+                value={budgetForm.category}
+                onChange={(e) => setBudgetForm({ ...budgetForm, category: e.target.value })}
+              />
+              <Input
+                label="Limit"
+                type="number"
+                placeholder="20000"
+                value={budgetForm.spendingLimit}
+                onChange={(e) => setBudgetForm({ ...budgetForm, spendingLimit: e.target.value })}
+              />
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase ml-1 mb-1">Timeframe</label>
+                <select
+                  value={budgetForm.timeFrame}
+                  onChange={(e) => setBudgetForm({ ...budgetForm, timeFrame: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3.5 px-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm"
+                >
+                  <option value="Weekly">Weekly</option>
+                  <option value="Monthly">Monthly</option>
+                  <option value="Yearly">Yearly</option>
+                </select>
+              </div>
             </div>
+            <Button className="mt-4" onClick={handleCreateBudget} disabled={actionLoading}>
+              Add Budget
+            </Button>
           </Card>
 
-          {/* 2. Saving Goals Section */}
-          <div className="space-y-6">
-            <Card className="p-6">
-              <CardHeader icon={Target} title="Saving Goals" iconColor="text-indigo-600" />
+          <Card className="p-6">
+            <CardHeader icon={Target} title="Create Saving Goal" iconColor="text-indigo-600" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Goal Name"
+                placeholder="Emergency Fund"
+                value={goalForm.goalName}
+                onChange={(e) => setGoalForm({ ...goalForm, goalName: e.target.value })}
+              />
+              <Input
+                label="Target Value"
+                type="number"
+                placeholder="100000"
+                value={goalForm.targetValue}
+                onChange={(e) => setGoalForm({ ...goalForm, targetValue: e.target.value })}
+              />
+              <Input
+                label="Current Saved"
+                type="number"
+                value={goalForm.currentSavedAmount}
+                onChange={(e) => setGoalForm({ ...goalForm, currentSavedAmount: e.target.value })}
+              />
+              <Input
+                label="Target Date"
+                type="date"
+                value={goalForm.targetDate}
+                onChange={(e) => setGoalForm({ ...goalForm, targetDate: e.target.value })}
+              />
+            </div>
+            <Button className="mt-4" onClick={handleCreateGoal} disabled={actionLoading}>
+              Add Goal
+            </Button>
+          </Card>
+        </div>
 
-              <div className="grid grid-cols-1 gap-4 mt-6">
-                {goals.map((goal, idx) => {
-                  const percent = (goal.current / goal.target) * 100;
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Card className="p-6">
+            <CardHeader icon={PieChart} title="Category Budgets" />
+            {loading ? (
+              <p className="text-sm text-gray-500">Loading budgets...</p>
+            ) : budgets.length === 0 ? (
+              <p className="text-sm text-gray-500">No budgets yet. Create your first category budget.</p>
+            ) : (
+              <div className="space-y-6 mt-6">
+                {budgets.map((budget) => {
+                  const percent = budget.spendingLimit ? (budget.currentSpending / budget.spendingLimit) * 100 : 0;
+                  const isOver = budget.currentSpending > budget.spendingLimit;
+                  const color = isOver ? 'bg-red-500' : percent >= 75 ? 'bg-amber-500' : 'bg-blue-500';
+
                   return (
-                    <div key={idx} className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 border-dashed">
-                      <div className="flex justify-between items-center mb-3">
-                        <div className='text-left'>
-                          <h4 className="font-bold text-indigo-900">{goal.name}</h4>
-                          <p className="text-[10px] text-indigo-400 uppercase font-black">Target: {goal.deadline}</p>
+                    <div key={budget._id}>
+                      <div className="flex justify-between items-end mb-2">
+                        <div className="text-left">
+                          <p className="text-sm font-bold text-gray-700">{budget.category}</p>
+                          <p className="text-xs text-gray-400">
+                            LKR {formatCurrency(budget.currentSpending)} of {formatCurrency(budget.spendingLimit)} • {budget.timeFrame}
+                          </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs font-bold text-indigo-600">{percent.toFixed(0)}% Done</p>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-bold ${isOver ? 'text-red-500' : 'text-gray-500'}`}>
+                            {percent.toFixed(0)}%
+                          </span>
+                          <button onClick={() => handleDeleteBudget(budget._id)} className="text-gray-400 hover:text-red-500">
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </div>
-                      <div className="w-full bg-white h-4 rounded-full p-1 border border-indigo-100 shadow-inner">
-                        <div 
-                          className="h-full bg-indigo-500 rounded-full flex items-center justify-end pr-1 transition-all duration-1000"
-                          style={{ width: `${percent}%` }}
-                        >
-                          <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                      <ProgressBar value={budget.currentSpending} max={budget.spendingLimit} color={color} />
+                      {isOver && (
+                        <div className="flex items-center gap-1 mt-2 text-red-500">
+                          <AlertTriangle size={12} />
+                          <span className="text-[10px] font-bold uppercase">Over Budget Alert</span>
                         </div>
-                      </div>
-                      <div className="mt-3 flex justify-between items-center">
-                        <p className="text-xs font-medium text-indigo-700">LKR {goal.current.toLocaleString()}</p>
-                        <p className="text-xs font-medium text-gray-400">Goal: {goal.target.toLocaleString()}</p>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
+            )}
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="p-6">
+              <CardHeader icon={Target} title="Saving Goals" iconColor="text-indigo-600" />
+              {loading ? (
+                <p className="text-sm text-gray-500">Loading goals...</p>
+              ) : goals.length === 0 ? (
+                <p className="text-sm text-gray-500">No goals yet. Create your first saving target.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 mt-6">
+                  {goals.map((goal) => {
+                    const percent = goal.targetValue ? (goal.currentSavedAmount / goal.targetValue) * 100 : 0;
+                    const safePercent = Math.min(percent, 100);
+                    const deadlineLabel = goal.targetDate
+                      ? new Date(goal.targetDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'short' })
+                      : 'No deadline';
+
+                    return (
+                      <div key={goal._id} className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 border-dashed">
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="text-left">
+                            <h4 className="font-bold text-indigo-900">{goal.goalName}</h4>
+                            <p className="text-[10px] text-indigo-400 uppercase font-black">Target: {deadlineLabel}</p>
+                          </div>
+                          <div className="text-right flex items-center gap-3">
+                            <p className="text-xs font-bold text-indigo-600">{percent.toFixed(0)}% Done</p>
+                            <button onClick={() => handleDeleteGoal(goal._id)} className="text-indigo-400 hover:text-red-500">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="w-full bg-white h-4 rounded-full p-1 border border-indigo-100 shadow-inner">
+                          <div
+                            className="h-full bg-indigo-500 rounded-full flex items-center justify-end pr-1 transition-all duration-700"
+                            style={{ width: `${safePercent}%` }}
+                          >
+                            <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                          </div>
+                        </div>
+                        <div className="mt-3 flex justify-between items-center">
+                          <p className="text-xs font-medium text-indigo-700">LKR {formatCurrency(goal.currentSavedAmount)}</p>
+                          <p className="text-xs font-medium text-gray-400">Goal: {formatCurrency(goal.targetValue)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
 
-            {/* AI Contribution Suggestion (SRS Requirement: Proactive Planning) */}
             <Card variant="gradient" className="p-6 bg-linear-to-r from-orange-400 to-rose-500">
               <div className="flex items-center gap-2 mb-2 text-left">
                 <Flame size={18} />
                 <span className="font-bold text-sm uppercase tracking-tighter">AI Quick Action</span>
               </div>
               <p className="text-sm font-medium leading-relaxed mb-4 text-left">
-                "We found a surplus of LKR 5,000 in your wallet. 
-                Move it to your 'New Laptop' goal to finish earlier?"
+                {primaryGoal
+                  ? `Move a surplus amount to '${primaryGoal.goalName}' and finish faster.`
+                  : 'Create a goal first, then apply a quick contribution.'}
               </p>
-              <Button variant="secondary" size="md" className="w-full bg-white text-rose-500 hover:bg-rose-50 border-0">
-                Apply Contribution
-              </Button>
+              <div className="flex gap-3">
+                <Input
+                  type="number"
+                  placeholder="5000"
+                  value={contributionAmount}
+                  onChange={(e) => setContributionAmount(e.target.value)}
+                  className="bg-white"
+                />
+                <Button
+                  variant="secondary"
+                  size="md"
+                  className="bg-white text-rose-500 hover:bg-rose-50 border-0"
+                  onClick={handleQuickContribution}
+                  disabled={actionLoading || !primaryGoal}
+                >
+                  Apply
+                </Button>
+              </div>
             </Card>
           </div>
-
         </div>
       </div>
     </div>
