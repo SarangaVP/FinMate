@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Target, PieChart, AlertTriangle, Plus, Pencil, Check, X, Trash2 } from 'lucide-react';
 import { Card, CardHeader, Button, ProgressBar, Input } from './ui';
 import { budgetGoalsApi } from '../api/budgetGoalsApi';
@@ -32,15 +32,11 @@ const BudgetsGoals = () => {
     targetDate: ''
   });
 
-  const [contributionAmount, setContributionAmount] = useState('5000');
-
   const formatCurrency = (value) =>
     new Intl.NumberFormat('en-LK', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value || 0);
-
-  const primaryGoal = useMemo(() => goals[0] || null, [goals]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -185,31 +181,6 @@ const BudgetsGoals = () => {
     }
   };
 
-  const handleQuickContribution = async () => {
-    if (!primaryGoal) {
-      setError('Create a saving goal first');
-      return;
-    }
-
-    const amount = Number(contributionAmount);
-    if (!amount || amount <= 0) {
-      setError('Contribution amount must be greater than 0');
-      return;
-    }
-
-    setActionLoading(true);
-    setError('');
-    try {
-      await budgetGoalsApi.contributeToGoal(primaryGoal._id, amount);
-      setMessage(`LKR ${formatCurrency(amount)} added to ${primaryGoal.goalName}`);
-      fetchData();
-    } catch (contributionError) {
-      setError(contributionError?.response?.data?.error || 'Failed to apply contribution');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
@@ -342,7 +313,7 @@ const BudgetsGoals = () => {
             )}
           </Card>
 
-          <div className="space-y-6">
+          <div>
             <Card className="p-6">
               <CardHeader icon={Target} title="Saving Goals" iconColor="text-indigo-600" />
               {loading ? (
@@ -432,34 +403,6 @@ const BudgetsGoals = () => {
                   })}
                 </div>
               )}
-            </Card>
-
-            <Card className="p-6 border border-orange-100 bg-orange-50/60">
-              <div className="flex items-center gap-2 mb-2 text-left">
-                <span className="font-bold text-sm uppercase tracking-tighter text-orange-700">Quick Contribution</span>
-              </div>
-              <p className="text-sm font-medium leading-relaxed mb-4 text-left text-orange-800">
-                {primaryGoal
-                  ? `Add a quick amount to '${primaryGoal.goalName}'.`
-                  : 'Create a goal first, then apply a contribution.'}
-              </p>
-              <div className="flex gap-3">
-                <Input
-                  type="number"
-                  placeholder="5000"
-                  value={contributionAmount}
-                  onChange={(e) => setContributionAmount(e.target.value)}
-                  className="bg-white"
-                />
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={handleQuickContribution}
-                  disabled={actionLoading || !primaryGoal}
-                >
-                  Apply
-                </Button>
-              </div>
             </Card>
           </div>
         </div>
