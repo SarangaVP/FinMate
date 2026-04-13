@@ -1,5 +1,6 @@
 const Budget = require('../models/Budget');
 const SavingGoal = require('../models/SavingGoal');
+const Transaction = require('../models/Transaction');
 
 const parseAmount = (value) => {
     const parsed = Number(value);
@@ -202,6 +203,21 @@ const contributeToGoal = async (req, res) => {
 
         goal.currentSavedAmount += parsedAmount;
         const updatedGoal = await goal.save();
+
+        try {
+            await Transaction.create({
+                userId: req.user._id,
+                amount: parsedAmount,
+                description: `Contribution to goal: ${goal.goalName}`,
+                category: 'Goal',
+                type: 'expense',
+                date: new Date()
+            });
+        } catch (transactionError) {
+            goal.currentSavedAmount = Math.max(0, goal.currentSavedAmount - parsedAmount);
+            await goal.save();
+            return res.status(500).json({ error: transactionError.message });
+        }
 
         return res.json(updatedGoal);
     } catch (error) {

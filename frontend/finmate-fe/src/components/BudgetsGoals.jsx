@@ -32,6 +32,8 @@ const BudgetsGoals = () => {
     targetDate: ''
   });
 
+  const [goalContributionAmounts, setGoalContributionAmounts] = useState({});
+
   const formatCurrency = (value) =>
     new Intl.NumberFormat('en-LK', {
       minimumFractionDigits: 0,
@@ -176,6 +178,36 @@ const BudgetsGoals = () => {
       fetchData();
     } catch (updateError) {
       setError(updateError?.response?.data?.error || 'Failed to update saving goal');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleGoalContributionAmountChange = (goalId, value) => {
+    setGoalContributionAmounts((prev) => ({
+      ...prev,
+      [goalId]: value
+    }));
+  };
+
+  const handleAddCashToGoal = async (goal) => {
+    const rawAmount = goalContributionAmounts[goal._id] ?? '';
+    const amount = Number(rawAmount);
+
+    if (!amount || amount <= 0) {
+      setError('Contribution amount must be greater than 0');
+      return;
+    }
+
+    setActionLoading(true);
+    setError('');
+    try {
+      await budgetGoalsApi.contributeToGoal(goal._id, amount);
+      setGoalContributionAmounts((prev) => ({ ...prev, [goal._id]: '' }));
+      setMessage(`LKR ${formatCurrency(amount)} added to ${goal.goalName} and logged as a transaction`);
+      fetchData();
+    } catch (contributionError) {
+      setError(contributionError?.response?.data?.error || 'Failed to contribute to goal');
     } finally {
       setActionLoading(false);
     }
@@ -395,6 +427,18 @@ const BudgetsGoals = () => {
                             <div className="mt-3 flex justify-between items-center">
                               <p className="text-xs font-medium text-indigo-700">LKR {formatCurrency(goal.currentSavedAmount)}</p>
                               <p className="text-xs font-medium text-gray-400">Goal: {formatCurrency(goal.targetValue)}</p>
+                            </div>
+                            <div className="mt-3 flex gap-2">
+                              <input
+                                type="number"
+                                placeholder="Add cash"
+                                value={goalContributionAmounts[goal._id] ?? ''}
+                                onChange={(e) => handleGoalContributionAmountChange(goal._id, e.target.value)}
+                                className="flex-1 bg-white border border-indigo-100 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100"
+                              />
+                              <Button size="sm" onClick={() => handleAddCashToGoal(goal)} disabled={actionLoading}>
+                                Add
+                              </Button>
                             </div>
                           </>
                         )}
