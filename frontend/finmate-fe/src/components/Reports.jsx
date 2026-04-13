@@ -1,119 +1,201 @@
-import React from 'react';
-import { BarChart3, BrainCircuit, Download, TrendingDown, TrendingUp, Zap, Sparkles } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { BarChart3, Download, TrendingDown, TrendingUp, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardHeader, Button } from './ui';
+import API from '../utils/api';
 
 const Reports = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [analytics, setAnalytics] = useState({
+    summary: {
+      totalIncome: 0,
+      totalExpense: 0,
+      balance: 0,
+      totalTransactions: 0
+    },
+    categories: [],
+    monthlyTrend: [],
+    insights: {
+      topCategory: 'N/A',
+      topCategorySpend: 0,
+      mostExpensiveDay: 'N/A'
+    }
+  });
+
+  const formatAmount = (value) =>
+    new Intl.NumberFormat('en-LK', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value || 0);
+
+  const fetchAnalytics = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await API.get('/reports/analytics?months=6');
+      setAnalytics(response.data);
+    } catch (fetchError) {
+      setError(fetchError?.response?.data?.error || 'Failed to load reports analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+
+    const handleTransactionsUpdated = () => {
+      fetchAnalytics();
+    };
+
+    window.addEventListener('transactions:updated', handleTransactionsUpdated);
+    return () => {
+      window.removeEventListener('transactions:updated', handleTransactionsUpdated);
+    };
+  }, []);
+
+  const maxCategorySpend = useMemo(
+    () => Math.max(...analytics.categories.map((item) => item.total), 0),
+    [analytics.categories]
+  );
+
+  const maxMonthlyValue = useMemo(() => {
+    const maxValue = analytics.monthlyTrend.reduce(
+      (currentMax, row) => Math.max(currentMax, row.income, row.expense),
+      0
+    );
+    return maxValue || 1;
+  }, [analytics.monthlyTrend]);
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen text-left">
       <div className="max-w-6xl mx-auto">
-        {/* Header with Export Action */}
         <div className="flex justify-between items-end mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Reports & AI Insights</h1>
-            <p className="text-gray-500 text-sm">Deep dive into your spending patterns powered by Google Gemini.</p>
+            <h1 className="text-2xl font-bold text-gray-800">Reports & Analytics</h1>
+            <p className="text-gray-500 text-sm">Live insights from your income, spending, and category behavior.</p>
           </div>
-          <Button variant="secondary" icon={Download}>
-            Export PDF
+          <Button variant="secondary" icon={Download} onClick={fetchAnalytics} disabled={loading}>
+            Refresh
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* 1. The "Gemini Digest" - Fulfills Intelligent Summarization Requirement */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="p-8 rounded-3xl border-indigo-50 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4">
-                <Sparkles className="text-indigo-200 animate-pulse" size={40} />
-              </div>
-              
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-indigo-600 rounded-lg text-white">
-                  <BrainCircuit size={20} />
-                </div>
-                <h2 className="text-xl font-bold text-gray-800">Weekly AI Digest</h2>
-              </div>
+        {error && (
+          <Card className="p-4 mb-6 border border-red-100 bg-red-50 text-red-700 flex items-center gap-2">
+            <AlertCircle size={16} />
+            <span className="text-sm font-medium">{error}</span>
+          </Card>
+        )}
 
-              <div className="prose prose-indigo max-w-none">
-                <p className="text-gray-600 leading-relaxed mb-4">
-                  "Hello Saranga! Based on your activity from <span className="font-bold">Dec 21 - Dec 27</span>, here is what I found:"
-                </p>
-                <ul className="space-y-4">
-                  <li className="flex gap-3">
-                    <Zap className="text-amber-500 shrink-0" size={18} />
-                    <span className="text-sm text-gray-700">
-                      Your <span className="font-bold">Dining Out</span> frequency increased by 12% this week. This is mostly driven by three late-night orders.
-                    </span>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card className="p-5">
+            <p className="text-xs uppercase text-gray-400 font-bold mb-1">Income</p>
+            <p className="text-xl font-bold text-green-600">LKR {formatAmount(analytics.summary.totalIncome)}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-xs uppercase text-gray-400 font-bold mb-1">Expense</p>
+            <p className="text-xl font-bold text-red-600">LKR {formatAmount(analytics.summary.totalExpense)}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-xs uppercase text-gray-400 font-bold mb-1">Balance</p>
+            <p className={`text-xl font-bold ${analytics.summary.balance >= 0 ? 'text-gray-800' : 'text-red-600'}`}>
+              LKR {formatAmount(analytics.summary.balance)}
+            </p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-xs uppercase text-gray-400 font-bold mb-1">Transactions</p>
+            <p className="text-xl font-bold text-gray-800">{analytics.summary.totalTransactions}</p>
+          </Card>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-gray-500 gap-2">
+            <Loader2 size={18} className="animate-spin" />
+            <span>Loading analytics...</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="p-6 rounded-2xl border-indigo-50">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="text-indigo-400" size={18} />
+                  <h2 className="font-bold text-gray-800">Insights Digest</h2>
+                </div>
+                <ul className="space-y-3 text-sm text-gray-700">
+                  <li className="flex items-center gap-2">
+                    <TrendingDown className="text-rose-500" size={16} />
+                    Top spending category: <span className="font-bold">{analytics.insights.topCategory}</span>
+                    <span className="text-gray-500">(LKR {formatAmount(analytics.insights.topCategorySpend)})</span>
                   </li>
-                  <li className="flex gap-3">
-                    <TrendingDown className="text-green-500 shrink-0" size={18} />
-                    <span className="text-sm text-gray-700">
-                      Great job on <span className="font-bold">Utilities</span>! Your proactive tracking saved you LKR 1,200 compared to last month's average.
-                    </span>
+                  <li className="flex items-center gap-2">
+                    <BarChart3 className="text-indigo-500" size={16} />
+                    Most expensive day (last 6 months): <span className="font-bold">{analytics.insights.mostExpensiveDay}</span>
                   </li>
-                  <li className="flex gap-3">
-                    <TrendingUp className="text-blue-500 shrink-0" size={18} />
-                    <span className="text-sm text-gray-700">
-                      You are on track to save <span className="font-bold">LKR 15,000</span> more than last month if you maintain this pace.
-                    </span>
+                  <li className="flex items-center gap-2">
+                    <TrendingUp className="text-green-500" size={16} />
+                    Net position: <span className="font-bold">LKR {formatAmount(analytics.summary.balance)}</span>
                   </li>
                 </ul>
-              </div>
-              
-              <div className="mt-8 pt-6 border-t border-gray-50 flex gap-4">
-                <Button variant="ghost" size="sm" className="text-indigo-600 bg-indigo-50 hover:bg-indigo-100">
-                  Generate Monthly View
-                </Button>
-                <Button variant="ghost" size="sm">
-                  Dismiss
-                </Button>
-              </div>
-            </Card>
-
-            {/* Placeholder for Analytics Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="p-6 h-64 flex flex-col items-center justify-center">
-                <BarChart3 className="text-gray-200 mb-2" size={48} />
-                <p className="text-gray-400 text-sm font-medium">Spending by Category Chart</p>
               </Card>
-              <Card className="p-6 h-64 flex flex-col items-center justify-center">
-                <TrendingUp className="text-gray-200 mb-2" size={48} />
-                <p className="text-gray-400 text-sm font-medium">Income vs Expense Trend</p>
+
+              <Card className="p-6">
+                <CardHeader title="Income vs Expense Trend (6 months)" />
+                {analytics.monthlyTrend.length === 0 ? (
+                  <p className="text-sm text-gray-500 mt-4">No monthly data available yet.</p>
+                ) : (
+                  <div className="mt-4 space-y-4">
+                    {analytics.monthlyTrend.map((row) => (
+                      <div key={row.label}>
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          <span>{row.label}</span>
+                          <span>
+                            +{formatAmount(row.income)} / -{formatAmount(row.expense)}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <div
+                            className="h-2 bg-green-500 rounded"
+                            style={{ width: `${Math.max((row.income / maxMonthlyValue) * 100, 2)}%` }}
+                          />
+                          <div
+                            className="h-2 bg-red-500 rounded"
+                            style={{ width: `${Math.max((row.expense / maxMonthlyValue) * 100, 2)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card className="p-6">
+                <CardHeader title="Spending by Category" />
+                {analytics.categories.length === 0 ? (
+                  <p className="text-sm text-gray-500 mt-3">No expense categories found yet.</p>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {analytics.categories.map((category) => (
+                      <div key={category.category}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="font-medium text-gray-700">{category.category}</span>
+                          <span className="text-gray-500">LKR {formatAmount(category.total)}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded">
+                          <div
+                            className="h-2 bg-indigo-500 rounded"
+                            style={{ width: `${Math.max((category.total / (maxCategorySpend || 1)) * 100, 5)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Card>
             </div>
           </div>
-
-          {/* 2. Side Panel: Quick Stats */}
-          <div className="space-y-6">
-            <Card variant="dark" className="p-6 rounded-3xl">
-              <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-4">Quick Insights</h3>
-              <div className="space-y-6">
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Most Expensive Day</p>
-                  <p className="text-lg font-bold">Tuesday, Dec 23</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Top Spending Category</p>
-                  <p className="text-lg font-bold text-amber-400">Food & Beverages</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <CardHeader title="Download History" />
-              <div className="space-y-3">
-                <div className="flex justify-between text-xs p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-all">
-                  <span className="text-gray-600">November_Summary.csv</span>
-                  <Download size={14} className="text-gray-400" />
-                </div>
-                <div className="flex justify-between text-xs p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-all">
-                  <span className="text-gray-600">Q4_Tax_Report.pdf</span>
-                  <Download size={14} className="text-gray-400" />
-                </div>
-              </div>
-            </Card>
-          </div>
-
-        </div>
+        )}
       </div>
     </div>
   );
