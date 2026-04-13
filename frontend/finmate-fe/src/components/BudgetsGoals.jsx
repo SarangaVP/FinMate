@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Target, PieChart, AlertTriangle, Plus, Flame, Trash2 } from 'lucide-react';
+import { Target, PieChart, AlertTriangle, Plus, Pencil, Check, X, Trash2 } from 'lucide-react';
 import { Card, CardHeader, Button, ProgressBar, Input } from './ui';
 import { budgetGoalsApi } from '../api/budgetGoalsApi';
 
@@ -21,6 +21,14 @@ const BudgetsGoals = () => {
     goalName: '',
     targetValue: '',
     currentSavedAmount: '0',
+    targetDate: ''
+  });
+
+  const [editingGoalId, setEditingGoalId] = useState(null);
+  const [editGoalForm, setEditGoalForm] = useState({
+    goalName: '',
+    targetValue: '',
+    currentSavedAmount: '',
     targetDate: ''
   });
 
@@ -127,6 +135,51 @@ const BudgetsGoals = () => {
       fetchData();
     } catch (deleteError) {
       setError(deleteError?.response?.data?.error || 'Failed to delete saving goal');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStartEditGoal = (goal) => {
+    setEditingGoalId(goal._id);
+    setEditGoalForm({
+      goalName: goal.goalName || '',
+      targetValue: String(goal.targetValue ?? ''),
+      currentSavedAmount: String(goal.currentSavedAmount ?? 0),
+      targetDate: goal.targetDate ? new Date(goal.targetDate).toISOString().split('T')[0] : ''
+    });
+  };
+
+  const handleCancelEditGoal = () => {
+    setEditingGoalId(null);
+    setEditGoalForm({
+      goalName: '',
+      targetValue: '',
+      currentSavedAmount: '',
+      targetDate: ''
+    });
+  };
+
+  const handleUpdateGoal = async (id) => {
+    if (!editGoalForm.goalName || !editGoalForm.targetValue) {
+      setError('Goal name and target value are required');
+      return;
+    }
+
+    setActionLoading(true);
+    setError('');
+    try {
+      await budgetGoalsApi.updateGoal(id, {
+        goalName: editGoalForm.goalName,
+        targetValue: Number(editGoalForm.targetValue),
+        currentSavedAmount: Number(editGoalForm.currentSavedAmount || 0),
+        targetDate: editGoalForm.targetDate || null
+      });
+      setMessage('Saving goal updated');
+      handleCancelEditGoal();
+      fetchData();
+    } catch (updateError) {
+      setError(updateError?.response?.data?.error || 'Failed to update saving goal');
     } finally {
       setActionLoading(false);
     }
@@ -307,30 +360,73 @@ const BudgetsGoals = () => {
 
                     return (
                       <div key={goal._id} className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 border-dashed">
-                        <div className="flex justify-between items-center mb-3">
-                          <div className="text-left">
-                            <h4 className="font-bold text-indigo-900">{goal.goalName}</h4>
-                            <p className="text-[10px] text-indigo-400 uppercase font-black">Target: {deadlineLabel}</p>
-                          </div>
-                          <div className="text-right flex items-center gap-3">
-                            <p className="text-xs font-bold text-indigo-600">{percent.toFixed(0)}% Done</p>
-                            <button onClick={() => handleDeleteGoal(goal._id)} className="text-indigo-400 hover:text-red-500">
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="w-full bg-white h-4 rounded-full p-1 border border-indigo-100 shadow-inner">
-                          <div
-                            className="h-full bg-indigo-500 rounded-full flex items-center justify-end pr-1 transition-all duration-700"
-                            style={{ width: `${safePercent}%` }}
-                          >
-                            <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                          </div>
-                        </div>
-                        <div className="mt-3 flex justify-between items-center">
-                          <p className="text-xs font-medium text-indigo-700">LKR {formatCurrency(goal.currentSavedAmount)}</p>
-                          <p className="text-xs font-medium text-gray-400">Goal: {formatCurrency(goal.targetValue)}</p>
-                        </div>
+                        {editingGoalId === goal._id ? (
+                          <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                              <Input
+                                label="Goal Name"
+                                value={editGoalForm.goalName}
+                                onChange={(e) => setEditGoalForm({ ...editGoalForm, goalName: e.target.value })}
+                              />
+                              <Input
+                                label="Target Value"
+                                type="number"
+                                value={editGoalForm.targetValue}
+                                onChange={(e) => setEditGoalForm({ ...editGoalForm, targetValue: e.target.value })}
+                              />
+                              <Input
+                                label="Current Saved"
+                                type="number"
+                                value={editGoalForm.currentSavedAmount}
+                                onChange={(e) => setEditGoalForm({ ...editGoalForm, currentSavedAmount: e.target.value })}
+                              />
+                              <Input
+                                label="Target Date"
+                                type="date"
+                                value={editGoalForm.targetDate}
+                                onChange={(e) => setEditGoalForm({ ...editGoalForm, targetDate: e.target.value })}
+                              />
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <Button size="sm" onClick={() => handleUpdateGoal(goal._id)} disabled={actionLoading} icon={Check}>
+                                Save
+                              </Button>
+                              <Button size="sm" variant="secondary" onClick={handleCancelEditGoal} icon={X}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex justify-between items-center mb-3">
+                              <div className="text-left">
+                                <h4 className="font-bold text-indigo-900">{goal.goalName}</h4>
+                                <p className="text-[10px] text-indigo-400 uppercase font-black">Target: {deadlineLabel}</p>
+                              </div>
+                              <div className="text-right flex items-center gap-3">
+                                <p className="text-xs font-bold text-indigo-600">{percent.toFixed(0)}% Done</p>
+                                <button onClick={() => handleStartEditGoal(goal)} className="text-indigo-400 hover:text-indigo-600">
+                                  <Pencil size={16} />
+                                </button>
+                                <button onClick={() => handleDeleteGoal(goal._id)} className="text-indigo-400 hover:text-red-500">
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="w-full bg-white h-4 rounded-full p-1 border border-indigo-100 shadow-inner">
+                              <div
+                                className="h-full bg-indigo-500 rounded-full flex items-center justify-end pr-1 transition-all duration-700"
+                                style={{ width: `${safePercent}%` }}
+                              >
+                                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                              </div>
+                            </div>
+                            <div className="mt-3 flex justify-between items-center">
+                              <p className="text-xs font-medium text-indigo-700">LKR {formatCurrency(goal.currentSavedAmount)}</p>
+                              <p className="text-xs font-medium text-gray-400">Goal: {formatCurrency(goal.targetValue)}</p>
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -338,15 +434,14 @@ const BudgetsGoals = () => {
               )}
             </Card>
 
-            <Card variant="gradient" className="p-6 bg-linear-to-r from-orange-400 to-rose-500">
+            <Card className="p-6 border border-orange-100 bg-orange-50/60">
               <div className="flex items-center gap-2 mb-2 text-left">
-                <Flame size={18} />
-                <span className="font-bold text-sm uppercase tracking-tighter">AI Quick Action</span>
+                <span className="font-bold text-sm uppercase tracking-tighter text-orange-700">Quick Contribution</span>
               </div>
-              <p className="text-sm font-medium leading-relaxed mb-4 text-left">
+              <p className="text-sm font-medium leading-relaxed mb-4 text-left text-orange-800">
                 {primaryGoal
-                  ? `Move a surplus amount to '${primaryGoal.goalName}' and finish faster.`
-                  : 'Create a goal first, then apply a quick contribution.'}
+                  ? `Add a quick amount to '${primaryGoal.goalName}'.`
+                  : 'Create a goal first, then apply a contribution.'}
               </p>
               <div className="flex gap-3">
                 <Input
@@ -357,9 +452,8 @@ const BudgetsGoals = () => {
                   className="bg-white"
                 />
                 <Button
-                  variant="secondary"
+                  variant="primary"
                   size="md"
-                  className="bg-white text-rose-500 hover:bg-rose-50 border-0"
                   onClick={handleQuickContribution}
                   disabled={actionLoading || !primaryGoal}
                 >
