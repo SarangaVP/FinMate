@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarClock, BellRing, ArrowRight, RefreshCw, AlertCircle, X, Pencil, Trash2, CheckCircle } from 'lucide-react';
+import { RefreshCw, AlertCircle, X, Pencil, Trash2, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge } from './ui';
 import API from '../utils/api';
 
@@ -171,6 +171,10 @@ const Recurring = () => {
     return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
   };
 
+  const totalRecurring = subscriptions.reduce((sum, sub) => sum + Number(sub.amount || 0), 0);
+  const dueSoonCount = subscriptions.filter((sub) => getStatusText(sub.nextDueDate) === 'Due Soon' || getStatusText(sub.nextDueDate) === 'Overdue').length;
+  const nextPayment = subscriptions.length > 0 ? subscriptions[0] : null;
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       {/* Toast Notification */}
@@ -212,18 +216,15 @@ const Recurring = () => {
         <div className="flex justify-between items-end mb-8 text-left">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Recurring Payments</h1>
-            <p className="text-gray-500 text-sm">Manage your subscriptions and repetitive bills automatically.</p>
+            <p className="text-gray-500 text-sm">Manage your recurring bills and subscriptions.</p>
           </div>
-          <Button variant="secondary" icon={CalendarClock}>
-            View Calendar
-          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* 1. Upcoming Reminders List */}
           <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1 text-left">Upcoming This Month</h3>
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1 text-left">Scheduled Payments</h3>
             {loading ? (
               <p className="text-gray-500">Loading...</p>
             ) : subscriptions.length === 0 ? (
@@ -349,20 +350,32 @@ const Recurring = () => {
             )}
           </div>
 
-          {/* 2. AI Budget Impact (Proactive Planning) */}
+          {/* 2. Recurring summary */}
           <div className="space-y-6">
             <Card className="p-6">
-              <CardHeader icon={AlertCircle} title="Payment Alert" iconColor="text-amber-500" />
-              <p className="text-sm text-gray-600 leading-relaxed text-left mb-6">
-                Your Apartment Rent is due in 3 days. We've reserved LKR 45,000 from your 'In My Pocket' balance to cover this.
-              </p>
-              <div className="w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
-                <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-left">Reserved for Bills</p>
-                <div className="flex justify-between items-end">
+              <CardHeader icon={AlertCircle} title="Summary" iconColor="text-amber-500" />
+              <div className="space-y-4">
+                <div className="w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-left">Total Recurring Amount</p>
                   <span className="text-xl font-bold text-gray-800 font-mono">
-                    LKR {subscriptions.reduce((sum, s) => sum + s.amount, 0).toLocaleString()}
+                    LKR {totalRecurring.toLocaleString()}
                   </span>
-                  <BellRing size={24} className="text-blue-200" />
+                </div>
+
+                <div className="w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-left">Due Soon / Overdue</p>
+                  <span className="text-xl font-bold text-gray-800 font-mono">{dueSoonCount}</span>
+                </div>
+
+                <div className="w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-left">Next Payment</p>
+                  {nextPayment ? (
+                    <p className="text-sm text-gray-700 text-left">
+                      {nextPayment.description} on {formatDate(nextPayment.nextDueDate)}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-left">No upcoming payments</p>
+                  )}
                 </div>
               </div>
             </Card>
