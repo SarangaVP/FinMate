@@ -19,6 +19,7 @@ API.interceptors.response.use(
         const isMutation = method === 'post' || method === 'put' || method === 'delete';
         const affectsBalance =
             url.startsWith('/transactions') ||
+            /\/planning\/goals\/[^/]+\/contribute$/.test(url) ||
             /\/recurring\/[^/]+\/pay$/.test(url);
 
         if (isMutation && affectsBalance && typeof window !== 'undefined') {
