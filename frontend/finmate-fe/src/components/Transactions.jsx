@@ -235,8 +235,8 @@ const Transactions = () => {
 
         {/* Smart Entry Form */}
         <Card className="p-4 md:p-6 mb-6 md:mb-8 border-blue-50">
-          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <Sparkles size={14} className="text-blue-500" /> Data Entry
+          <h3 className="font-bold text-gray-700 mb-4">
+            Data Entry
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2 relative">

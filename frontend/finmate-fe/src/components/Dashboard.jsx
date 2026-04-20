@@ -15,6 +15,16 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchSummary();
+
+    const handleTransactionsUpdated = () => {
+      fetchSummary();
+    };
+
+    window.addEventListener('transactions:updated', handleTransactionsUpdated);
+
+    return () => {
+      window.removeEventListener('transactions:updated', handleTransactionsUpdated);
+    };
   }, []);
 
   const fetchSummary = async () => {

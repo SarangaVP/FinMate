@@ -1,32 +1,54 @@
 const Transaction = require('../models/Transaction');
+const Budget = require('../models/Budget');
 const { analyzeTransaction } = require('../services/aiService');
 const mongoose = require('mongoose');
+
+const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const adjustBudgetsForTransaction = async (userId, transaction, direction = 1) => {
+    if (!transaction || transaction.type !== 'expense' || !transaction.category) {
+        return;
+    }
+
+    const amount = Number(transaction.amount) * direction;
+    if (!Number.isFinite(amount) || amount === 0) {
+        return;
+    }
+
+    const budgets = await Budget.find({
+        userId,
+        category: new RegExp(`^${escapeRegExp(transaction.category)}$`, 'i')
+    });
+
+    for (const budget of budgets) {
+        budget.currentSpending = Math.max(0, Number(budget.currentSpending || 0) + amount);
+        await budget.save();
+    }
+};
 
 // @desc    Create a new transaction with AI categorization
 // @route   POST /api/transactions
 exports.createTransaction = async (req, res) => {
     try {
-        const { amount, description, type, date, groupId, goalId } = req.body;
+        const { amount, description, type, date, groupId } = req.body;
 
-        // 1. Call Gemini AI Service for categorization
         const aiResult = await analyzeTransaction(description);
         const category = aiResult.category || 'Uncategorized';
 
-        // 2. Create Transaction using the Model
         const transaction = new Transaction({
-            userId: req.user, // Provided by protect middleware
+            userId: req.user._id,
             amount,
             description,
             category,
             type,
             date: date || Date.now(),
-            groupId,
-            goalId
+            groupId
         });
 
         const savedTransaction = await transaction.save();
-        
-        // Return transaction with AI-identified category
+
+        await adjustBudgetsForTransaction(req.user._id, savedTransaction, 1);
+
         res.status(201).json(savedTransaction);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -37,7 +59,7 @@ exports.createTransaction = async (req, res) => {
 // @route   GET /api/transactions
 exports.getTransactions = async (req, res) => {
     try {
-        const transactions = await Transaction.find({ userId: req.user }).sort({ createdAt: -1 });
+        const transactions = await Transaction.find({ userId: req.user._id }).sort({ createdAt: -1 });
         res.json(transactions);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -51,20 +73,23 @@ exports.updateTransaction = async (req, res) => {
         const { id } = req.params;
         const { amount, description, type, date } = req.body;
 
-        // Find transaction and verify ownership
-        const transaction = await Transaction.findOne({ _id: id, userId: req.user });
-        
+        const transaction = await Transaction.findOne({ _id: id, userId: req.user._id });
         if (!transaction) {
             return res.status(404).json({ error: 'Transaction not found' });
         }
 
-        // Update fields if provided
+        const previousTransaction = transaction.toObject();
+
         if (amount !== undefined) transaction.amount = amount;
         if (description !== undefined) transaction.description = description;
         if (type !== undefined) transaction.type = type;
         if (date !== undefined) transaction.date = date;
 
         const updatedTransaction = await transaction.save();
+
+        await adjustBudgetsForTransaction(req.user._id, previousTransaction, -1);
+        await adjustBudgetsForTransaction(req.user._id, updatedTransaction, 1);
+
         res.json(updatedTransaction);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -77,12 +102,12 @@ exports.deleteTransaction = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Find and delete transaction, ensuring it belongs to the user
-        const transaction = await Transaction.findOneAndDelete({ _id: id, userId: req.user });
-        
+        const transaction = await Transaction.findOneAndDelete({ _id: id, userId: req.user._id });
         if (!transaction) {
             return res.status(404).json({ error: 'Transaction not found' });
         }
+
+        await adjustBudgetsForTransaction(req.user._id, transaction, -1);
 
         res.json({ message: 'Transaction deleted successfully', id });
     } catch (err) {
@@ -94,9 +119,8 @@ exports.deleteTransaction = async (req, res) => {
 // @route   GET /api/transactions/summary
 exports.getDashboardSummary = async (req, res) => {
     try {
-        const userId = req.user;
+        const userId = req.user._id;
 
-        // Aggregate totals by type
         const summary = await Transaction.aggregate([
             { $match: { userId: new mongoose.Types.ObjectId(userId) } },
             {
@@ -107,7 +131,6 @@ exports.getDashboardSummary = async (req, res) => {
             }
         ]);
 
-        // Parse results
         let totalIncome = 0;
         let totalExpense = 0;
 

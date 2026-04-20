@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -10,12 +10,62 @@ import {
   UserCircle, 
   LogOut, 
   Wallet,
-  Search
+  Search,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import API from '../utils/api';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const [balance, setBalance] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchBalance();
+
+    const handleTransactionsUpdated = () => {
+      fetchBalance();
+    };
+
+    const handleFocus = () => {
+      fetchBalance();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchBalance();
+      }
+    };
+
+    window.addEventListener('transactions:updated', handleTransactionsUpdated);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('transactions:updated', handleTransactionsUpdated);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const fetchBalance = async () => {
+    try {
+      const response = await API.get('/transactions/summary');
+      setBalance(response.data.balance);
+    } catch (error) {
+      console.error('Failed to fetch balance', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatAmount = (amount) => {
+    return new Intl.NumberFormat('en-LK', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
@@ -33,9 +83,7 @@ const Navbar = () => {
   ];
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      logout();
-    }
+    logout();
   };
 
   // Get user initials for avatar
@@ -101,7 +149,16 @@ const Navbar = () => {
       <div className="p-4 border-t border-gray-100 space-y-4">
         <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
           <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">In My Pocket</p>
-          <p className="text-sm font-bold text-gray-800">{user?.currency || 'LKR'} 45,250.00</p>
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-gray-400">
+              <Loader2 size={14} className="animate-spin" />
+              <span className="text-sm">Loading...</span>
+            </div>
+          ) : (
+            <p className={`text-sm font-bold ${balance >= 0 ? 'text-gray-800' : 'text-red-600'}`}>
+              {user?.currency || 'LKR'} {formatAmount(balance)}
+            </p>
+          )}
         </div>
 
         {/* User Profile Summary */}
