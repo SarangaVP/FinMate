@@ -11,13 +11,19 @@ const Dashboard = () => {
     totalExpense: 0,
     balance: 0
   });
+  const [insights, setInsights] = useState({
+    topCategory: 'N/A',
+    topCategorySpend: 0,
+    mostExpensiveDay: 'N/A'
+  });
+  const [budgets, setBudgets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchSummary();
+    fetchDashboardData();
 
     const handleTransactionsUpdated = () => {
-      fetchSummary();
+      fetchDashboardData();
     };
 
     window.addEventListener('transactions:updated', handleTransactionsUpdated);
@@ -27,16 +33,68 @@ const Dashboard = () => {
     };
   }, []);
 
-  const fetchSummary = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const response = await API.get('/transactions/summary');
-      setSummary(response.data);
+      const [summaryResponse, budgetsResponse, analyticsResponse] = await Promise.allSettled([
+        API.get('/transactions/summary'),
+        API.get('/planning/budgets'),
+        API.get('/reports/analytics?months=6')
+      ]);
+
+      if (summaryResponse.status === 'fulfilled') {
+        setSummary(summaryResponse.value.data || { totalIncome: 0, totalExpense: 0, balance: 0 });
+      }
+
+      if (budgetsResponse.status === 'fulfilled') {
+        setBudgets(budgetsResponse.value.data || []);
+      }
+
+      if (analyticsResponse.status === 'fulfilled') {
+        setInsights(analyticsResponse.value.data?.insights || {
+          topCategory: 'N/A',
+          topCategorySpend: 0,
+          mostExpensiveDay: 'N/A'
+        });
+      }
     } catch (error) {
-      console.error('Failed to fetch summary', error);
+      console.error('Failed to fetch dashboard data', error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const budgetAlerts = budgets
+    .map((budget) => {
+      const spendingLimit = Number(budget.spendingLimit || 0);
+      const currentSpending = Number(budget.currentSpending || 0);
+      const usagePercent = spendingLimit > 0 ? (currentSpending / spendingLimit) * 100 : 0;
+      const overAmount = Math.max(0, currentSpending - spendingLimit);
+
+      if (usagePercent >= 100) {
+        return {
+          id: budget._id,
+          level: 'critical',
+          category: budget.category,
+          usagePercent,
+          overAmount
+        };
+      }
+
+      if (usagePercent >= 75) {
+        return {
+          id: budget._id,
+          level: 'warning',
+          category: budget.category,
+          usagePercent,
+          overAmount: 0
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.usagePercent - a.usagePercent)
+    .slice(0, 3);
 
   const formatAmount = (amount) => {
     return new Intl.NumberFormat('en-LK', {
@@ -80,19 +138,31 @@ const Dashboard = () => {
           )}
         </Card>
 
-        {/* AI Insight Card (Addresses SRS requirement for Intelligent Summarization) */}
+        {/* AI Insight Card */}
         <Card variant="gradient" className="p-6 md:col-span-2 relative overflow-hidden">
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-4">
               <BrainCircuit size={22} className="text-purple-200" />
-              <span className="font-semibold tracking-wide uppercase text-xs text-purple-100">AI Spending Analysis</span>
+              <span className="font-semibold tracking-wide uppercase text-xs text-purple-100">Spending Analysis</span>
             </div>
-            <p className="text-lg leading-relaxed text-left">
-                "Your <span className="font-bold text-white decoration-purple-400">Eating Out</span> expenses 
-                are <span className="font-bold text-yellow-300 text-xl">15% higher</span> than your set budget. 
-                Reducing this could help you reach your <span className="font-bold text-white">Emergency Fund</span> goal 
-                3 weeks earlier."
-            </p>
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-purple-100">
+                <Loader2 size={16} className="animate-spin" />
+                <span className="text-sm">Loading insights...</span>
+              </div>
+            ) : (
+              <div className="space-y-1 text-left">
+                <p className="text-lg leading-relaxed">
+                  Top spending category: <span className="font-bold text-white">{insights.topCategory || 'N/A'}</span>
+                </p>
+                <p className="text-sm text-purple-100">
+                  Spent: <span className="font-bold text-yellow-300">LKR {formatAmount(insights.topCategorySpend)}</span>
+                </p>
+                <p className="text-sm text-purple-100">
+                  Most expensive day: <span className="font-bold text-white">{insights.mostExpensiveDay || 'N/A'}</span>
+                </p>
+              </div>
+            )}
           </div>
           {/* Decorative background circle */}
           <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
@@ -135,19 +205,43 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        {/* Budget Alerts (Addresses Automated Monitoring requirement) */}
+        {/* Budget Alerts */}
         <Card className="p-6">
           <CardHeader title="Budget Alerts" />
-          <div className="space-y-4">
-             <div className="p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg text-left">
-                <p className="text-sm text-yellow-700 font-medium">Warning: Food & Groceries</p>
-                <p className="text-xs text-yellow-600">You have used 85% of your monthly limit.</p>
-             </div>
-             <div className="p-4 bg-red-50 border-l-4 border-red-400 rounded-r-lg text-left">
-                <p className="text-sm text-red-700 font-medium">Critical: Entertainment</p>
-                <p className="text-xs text-red-600">You are LKR 1,500 over your limit.</p>
-             </div>
-          </div>
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-gray-400">
+              <Loader2 size={16} className="animate-spin" />
+              <span className="text-sm">Loading alerts...</span>
+            </div>
+          ) : budgetAlerts.length === 0 ? (
+            <p className="text-sm text-gray-500 text-left">No warnings right now. Your budget usage looks healthy.</p>
+          ) : (
+            <div className="space-y-4">
+              {budgetAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={`p-4 border-l-4 rounded-r-lg text-left ${
+                    alert.level === 'critical'
+                      ? 'bg-red-50 border-red-400'
+                      : 'bg-yellow-50 border-yellow-400'
+                  }`}
+                >
+                  <p className={`text-sm font-medium ${alert.level === 'critical' ? 'text-red-700' : 'text-yellow-700'}`}>
+                    {alert.level === 'critical' ? 'Critical' : 'Warning'}: {alert.category}
+                  </p>
+                  {alert.level === 'critical' ? (
+                    <p className="text-xs text-red-600">
+                      You are LKR {formatAmount(alert.overAmount)} over your budget ({Math.round(alert.usagePercent)}% used).
+                    </p>
+                  ) : (
+                    <p className="text-xs text-yellow-600">
+                      You have used {Math.round(alert.usagePercent)}% of your budget limit.
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     </div>
