@@ -19,22 +19,23 @@ import API from '../utils/api';
 const Navbar = () => {
   const { user, logout } = useAuth();
   const [balance, setBalance] = useState(0);
+  const [recurringDueCount, setRecurringDueCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchBalance();
+    fetchSidebarData();
 
     const handleTransactionsUpdated = () => {
-      fetchBalance();
+      fetchSidebarData();
     };
 
     const handleFocus = () => {
-      fetchBalance();
+      fetchSidebarData();
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchBalance();
+        fetchSidebarData();
       }
     };
 
@@ -49,12 +50,31 @@ const Navbar = () => {
     };
   }, []);
 
-  const fetchBalance = async () => {
+  const getDueCount = (payments = []) => {
+    const now = new Date();
+    return payments.filter((payment) => {
+      const dueDate = new Date(payment.nextDueDate);
+      const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+      return daysUntilDue <= 3;
+    }).length;
+  };
+
+  const fetchSidebarData = async () => {
     try {
-      const response = await API.get('/transactions/summary');
-      setBalance(response.data.balance);
+      const [balanceResult, recurringResult] = await Promise.allSettled([
+        API.get('/transactions/summary'),
+        API.get('/recurring')
+      ]);
+
+      if (balanceResult.status === 'fulfilled') {
+        setBalance(balanceResult.value.data.balance || 0);
+      }
+
+      if (recurringResult.status === 'fulfilled') {
+        setRecurringDueCount(getDueCount(recurringResult.value.data?.data || []));
+      }
     } catch (error) {
-      console.error('Failed to fetch balance', error);
+      console.error('Failed to fetch navbar data', error);
     } finally {
       setIsLoading(false);
     }
@@ -74,11 +94,11 @@ const Navbar = () => {
       name: 'Recurring', 
       path: '/recurring', 
       icon: <CalendarClock size={20} />, 
-      alert: '3 Due'
+      alert: recurringDueCount > 0 ? `${recurringDueCount} Due` : null
     },
     { name: 'Budgets & Goals', path: '/budgets-goals', icon: <Target size={20} /> },
     { name: 'Shared Groups', path: '/shared', icon: <Users size={20} /> },
-    { name: 'Reports & AI', path: '/reports', icon: <BarChart3 size={20} /> },
+    { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> },
     { name: 'Profile', path: '/profile', icon: <UserCircle size={20} /> },
   ];
 
