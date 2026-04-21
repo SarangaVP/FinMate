@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, ArrowRightLeft, CheckCircle2, MoreVertical, X, Plus } from 'lucide-react';
+import { Users, UserPlus, ArrowRightLeft, CheckCircle2, MoreVertical, X, Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge } from './ui';
 import { sharedGroupsApi } from '../api/sharedGroupsApi';
 
@@ -9,10 +9,15 @@ const SharedGroups = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [formData, setFormData] = useState({ groupName: '', memberEmails: [] });
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [groupBalances, setGroupBalances] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
 
   // Fetch groups on mount
   useEffect(() => {
@@ -35,8 +40,7 @@ const SharedGroups = () => {
         setSelectedGroup(response.data[0]);
       }
     } catch (err) {
-      setError('Failed to fetch groups');
-      console.error(err);
+      showToast(err.response?.data?.message || 'Failed to fetch groups', 'error');
     } finally {
       setLoading(false);
     }
@@ -54,18 +58,19 @@ const SharedGroups = () => {
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!formData.groupName.trim()) {
-      setError('Group name is required');
+      showToast('Group name is required', 'error');
       return;
     }
 
     try {
       setLoading(true);
       await sharedGroupsApi.createGroup(formData);
+      showToast('Group created successfully');
       setShowCreateModal(false);
       setFormData({ groupName: '', memberEmails: [] });
       fetchGroups();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create group');
+      showToast(err.response?.data?.message || 'Failed to create group', 'error');
     } finally {
       setLoading(false);
     }
@@ -74,19 +79,20 @@ const SharedGroups = () => {
   const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newMemberEmail.trim() || !selectedGroup) {
-      setError('Email is required');
+      showToast('Email is required', 'error');
       return;
     }
 
     try {
       setLoading(true);
       await sharedGroupsApi.addMember(selectedGroup._id, newMemberEmail);
+      showToast('Member added successfully');
       setShowAddMemberModal(false);
       setNewMemberEmail('');
       fetchGroups();
       fetchGroupBalances(selectedGroup._id);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add member');
+      showToast(err.response?.data?.message || 'Failed to add member', 'error');
     } finally {
       setLoading(false);
     }
@@ -96,9 +102,10 @@ const SharedGroups = () => {
     try {
       setLoading(true);
       await sharedGroupsApi.settleBalance(selectedGroup._id, fromUserId, toUserId, amount);
+      showToast('Balance settled successfully');
       fetchGroupBalances(selectedGroup._id);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to settle balance');
+      showToast(err.response?.data?.message || 'Failed to settle balance', 'error');
     } finally {
       setLoading(false);
     }
@@ -127,15 +134,19 @@ const SharedGroups = () => {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-6xl mx-auto">
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
-            <button onClick={() => setError(null)} className="ml-4 text-red-500 hover:text-red-700">×</button>
-          </div>
-        )}
+      {/* Toast Notification */}
+      {toast.show && (
+        <div
+          className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          }`}
+        >
+          {toast.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
 
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
