@@ -17,6 +17,13 @@ const BudgetsGoals = () => {
     timeFrame: 'Monthly'
   });
 
+  const [editingBudgetId, setEditingBudgetId] = useState(null);
+  const [editBudgetForm, setEditBudgetForm] = useState({
+    category: '',
+    spendingLimit: '',
+    timeFrame: 'Monthly'
+  });
+
   const [goalForm, setGoalForm] = useState({
     goalName: '',
     targetValue: '',
@@ -119,6 +126,44 @@ const BudgetsGoals = () => {
       fetchData();
     } catch (deleteError) {
       setError(deleteError?.response?.data?.error || 'Failed to delete budget');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStartEditBudget = (budget) => {
+    setEditingBudgetId(budget._id);
+    setEditBudgetForm({
+      category: budget.category || '',
+      spendingLimit: String(budget.spendingLimit ?? ''),
+      timeFrame: budget.timeFrame || 'Monthly'
+    });
+  };
+
+  const handleCancelEditBudget = () => {
+    setEditingBudgetId(null);
+    setEditBudgetForm({ category: '', spendingLimit: '', timeFrame: 'Monthly' });
+  };
+
+  const handleUpdateBudget = async (id) => {
+    if (!editBudgetForm.category || !editBudgetForm.spendingLimit) {
+      setError('Category and limit are required');
+      return;
+    }
+
+    setActionLoading(true);
+    setError('');
+    try {
+      await budgetGoalsApi.updateBudget(id, {
+        category: editBudgetForm.category,
+        spendingLimit: Number(editBudgetForm.spendingLimit),
+        timeFrame: editBudgetForm.timeFrame
+      });
+      setMessage('Budget updated');
+      handleCancelEditBudget();
+      fetchData();
+    } catch (updateError) {
+      setError(updateError?.response?.data?.error || 'Failed to update budget');
     } finally {
       setActionLoading(false);
     }
@@ -314,29 +359,72 @@ const BudgetsGoals = () => {
                   const color = isOver ? 'bg-red-500' : percent >= 75 ? 'bg-amber-500' : 'bg-blue-500';
 
                   return (
-                    <div key={budget._id}>
-                      <div className="flex justify-between items-end mb-2">
-                        <div className="text-left">
-                          <p className="text-sm font-bold text-gray-700">{budget.category}</p>
-                          <p className="text-xs text-gray-400">
-                            LKR {formatCurrency(budget.currentSpending)} of {formatCurrency(budget.spendingLimit)} • {budget.timeFrame}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-xs font-bold ${isOver ? 'text-red-500' : 'text-gray-500'}`}>
-                            {percent.toFixed(0)}%
-                          </span>
-                          <button onClick={() => handleDeleteBudget(budget._id)} className="text-gray-400 hover:text-red-500">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                      <ProgressBar value={budget.currentSpending} max={budget.spendingLimit} color={color} />
-                      {isOver && (
-                        <div className="flex items-center gap-1 mt-2 text-red-500">
-                          <AlertTriangle size={12} />
-                          <span className="text-[10px] font-bold uppercase">Over Budget Alert</span>
-                        </div>
+                    <div key={budget._id} className="p-4 bg-blue-50/40 rounded-xl border border-blue-100 border-dashed">
+                      {editingBudgetId === budget._id ? (
+                        <>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                            <Input
+                              label="Category"
+                              value={editBudgetForm.category}
+                              onChange={(e) => setEditBudgetForm({ ...editBudgetForm, category: e.target.value })}
+                            />
+                            <Input
+                              label="Limit"
+                              type="number"
+                              value={editBudgetForm.spendingLimit}
+                              onChange={(e) => setEditBudgetForm({ ...editBudgetForm, spendingLimit: e.target.value })}
+                            />
+                            <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase ml-1 mb-1">Timeframe</label>
+                              <select
+                                value={editBudgetForm.timeFrame}
+                                onChange={(e) => setEditBudgetForm({ ...editBudgetForm, timeFrame: e.target.value })}
+                                className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3.5 px-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm"
+                              >
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Yearly">Yearly</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button size="sm" onClick={() => handleUpdateBudget(budget._id)} disabled={actionLoading} icon={Check}>
+                              Save
+                            </Button>
+                            <Button size="sm" variant="secondary" onClick={handleCancelEditBudget} icon={X}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between items-end mb-2">
+                            <div className="text-left">
+                              <p className="text-sm font-bold text-gray-700">{budget.category}</p>
+                              <p className="text-xs text-gray-400">
+                                LKR {formatCurrency(budget.currentSpending)} of {formatCurrency(budget.spendingLimit)} • {budget.timeFrame}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xs font-bold ${isOver ? 'text-red-500' : 'text-gray-500'}`}>
+                                {percent.toFixed(0)}%
+                              </span>
+                              <button onClick={() => handleStartEditBudget(budget)} className="text-gray-400 hover:text-blue-500">
+                                <Pencil size={16} />
+                              </button>
+                              <button onClick={() => handleDeleteBudget(budget._id)} className="text-gray-400 hover:text-red-500">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                          <ProgressBar value={budget.currentSpending} max={budget.spendingLimit} color={color} />
+                          {isOver && (
+                            <div className="flex items-center gap-1 mt-2 text-red-500">
+                              <AlertTriangle size={12} />
+                              <span className="text-[10px] font-bold uppercase">Over Budget Alert</span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );
