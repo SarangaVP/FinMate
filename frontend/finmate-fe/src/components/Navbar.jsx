@@ -96,7 +96,7 @@ const Navbar = () => {
       icon: <CalendarClock size={20} />, 
       alert: recurringDueCount > 0 ? `${recurringDueCount} Due` : null
     },
-    { name: 'Budgets & Goals', path: '/budgets-goals', icon: <Target size={20} /> },
+    { name: 'Budgets and Goals', path: '/budgets-goals', icon: <Target size={20} /> },
     { name: 'Shared Groups', path: '/shared', icon: <Users size={20} /> },
     { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> },
     { name: 'Profile', path: '/profile', icon: <UserCircle size={20} /> },

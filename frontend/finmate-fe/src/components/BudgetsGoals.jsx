@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Target, PieChart, AlertTriangle, Plus, Pencil, Check, X, Trash2 } from 'lucide-react';
+import { Target, PieChart, AlertTriangle, Pencil, Check, X, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, ProgressBar, Input } from './ui';
 import { budgetGoalsApi } from '../api/budgetGoalsApi';
 
@@ -8,8 +8,8 @@ const BudgetsGoals = () => {
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, type: null, id: null, label: '' });
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const [budgetForm, setBudgetForm] = useState({
     category: '',
@@ -41,6 +41,11 @@ const BudgetsGoals = () => {
 
   const [goalContributionAmounts, setGoalContributionAmounts] = useState({});
 
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
   const formatCurrency = (value) =>
     new Intl.NumberFormat('en-LK', {
       minimumFractionDigits: 0,
@@ -49,7 +54,6 @@ const BudgetsGoals = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    setError('');
     try {
       const [budgetsResponse, goalsResponse] = await Promise.all([
         budgetGoalsApi.getBudgets(),
@@ -58,7 +62,7 @@ const BudgetsGoals = () => {
       setBudgets(budgetsResponse.data || []);
       setGoals(goalsResponse.data || []);
     } catch (fetchError) {
-      setError(fetchError?.response?.data?.error || 'Failed to load budgets and goals');
+      showToast(fetchError?.response?.data?.error || 'Failed to load budgets and goals', 'error');
     } finally {
       setLoading(false);
     }
@@ -70,12 +74,11 @@ const BudgetsGoals = () => {
 
   const handleCreateBudget = async () => {
     if (!budgetForm.category || !budgetForm.spendingLimit) {
-      setError('Please enter budget category and spending limit');
+      showToast('Please enter budget category and spending limit', 'error');
       return;
     }
 
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.createBudget({
         category: budgetForm.category,
@@ -83,10 +86,10 @@ const BudgetsGoals = () => {
         timeFrame: budgetForm.timeFrame
       });
       setBudgetForm({ category: '', spendingLimit: '', timeFrame: 'Monthly' });
-      setMessage('Budget created');
+      showToast('Budget created');
       fetchData();
     } catch (createError) {
-      setError(createError?.response?.data?.error || 'Failed to create budget');
+      showToast(createError?.response?.data?.error || 'Failed to create budget', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -94,12 +97,11 @@ const BudgetsGoals = () => {
 
   const handleCreateGoal = async () => {
     if (!goalForm.goalName || !goalForm.targetValue) {
-      setError('Please enter goal name and target value');
+      showToast('Please enter goal name and target value', 'error');
       return;
     }
 
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.createGoal({
         goalName: goalForm.goalName,
@@ -108,27 +110,30 @@ const BudgetsGoals = () => {
         targetDate: goalForm.targetDate || undefined
       });
       setGoalForm({ goalName: '', targetValue: '', currentSavedAmount: '0', targetDate: '' });
-      setMessage('Saving goal created');
+      showToast('Saving goal created');
       fetchData();
     } catch (createError) {
-      setError(createError?.response?.data?.error || 'Failed to create saving goal');
+      showToast(createError?.response?.data?.error || 'Failed to create saving goal', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDeleteBudget = async (id) => {
+  const handleDeleteBudget = async (id, label) => {
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.deleteBudget(id);
-      setMessage('Budget deleted');
+      showToast(`${label ? `${label} budget` : 'Budget'} deleted`);
       fetchData();
     } catch (deleteError) {
-      setError(deleteError?.response?.data?.error || 'Failed to delete budget');
+      showToast(deleteError?.response?.data?.error || 'Failed to delete budget', 'error');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const requestDeleteBudget = (budget) => {
+    setDeleteConfirm({ show: true, type: 'budget', id: budget._id, label: budget.category || 'this' });
   };
 
   const handleStartEditBudget = (budget) => {
@@ -147,40 +152,42 @@ const BudgetsGoals = () => {
 
   const handleUpdateBudget = async (id) => {
     if (!editBudgetForm.category || !editBudgetForm.spendingLimit) {
-      setError('Category and limit are required');
+      showToast('Category and limit are required', 'error');
       return;
     }
 
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.updateBudget(id, {
         category: editBudgetForm.category,
         spendingLimit: Number(editBudgetForm.spendingLimit),
         timeFrame: editBudgetForm.timeFrame
       });
-      setMessage('Budget updated');
+      showToast('Budget updated');
       handleCancelEditBudget();
       fetchData();
     } catch (updateError) {
-      setError(updateError?.response?.data?.error || 'Failed to update budget');
+      showToast(updateError?.response?.data?.error || 'Failed to update budget', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDeleteGoal = async (id) => {
+  const handleDeleteGoal = async (id, label) => {
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.deleteGoal(id);
-      setMessage('Saving goal deleted');
+      showToast(`${label ? `${label} goal` : 'Saving goal'} deleted`);
       fetchData();
     } catch (deleteError) {
-      setError(deleteError?.response?.data?.error || 'Failed to delete saving goal');
+      showToast(deleteError?.response?.data?.error || 'Failed to delete saving goal', 'error');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const requestDeleteGoal = (goal) => {
+    setDeleteConfirm({ show: true, type: 'goal', id: goal._id, label: goal.goalName || 'this' });
   };
 
   const handleStartEditGoal = (goal) => {
@@ -205,12 +212,11 @@ const BudgetsGoals = () => {
 
   const handleUpdateGoal = async (id) => {
     if (!editGoalForm.goalName || !editGoalForm.targetValue) {
-      setError('Goal name and target value are required');
+      showToast('Goal name and target value are required', 'error');
       return;
     }
 
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.updateGoal(id, {
         goalName: editGoalForm.goalName,
@@ -218,11 +224,11 @@ const BudgetsGoals = () => {
         currentSavedAmount: Number(editGoalForm.currentSavedAmount || 0),
         targetDate: editGoalForm.targetDate || null
       });
-      setMessage('Saving goal updated');
+      showToast('Saving goal updated');
       handleCancelEditGoal();
       fetchData();
     } catch (updateError) {
-      setError(updateError?.response?.data?.error || 'Failed to update saving goal');
+      showToast(updateError?.response?.data?.error || 'Failed to update saving goal', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -240,39 +246,89 @@ const BudgetsGoals = () => {
     const amount = Number(rawAmount);
 
     if (!amount || amount <= 0) {
-      setError('Contribution amount must be greater than 0');
+      showToast('Contribution amount must be greater than 0', 'error');
       return;
     }
 
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.contributeToGoal(goal._id, amount);
       setGoalContributionAmounts((prev) => ({ ...prev, [goal._id]: '' }));
-      setMessage(`LKR ${formatCurrency(amount)} added to ${goal.goalName} and logged as a transaction`);
+      showToast(`LKR ${formatCurrency(amount)} added to ${goal.goalName} and logged as a transaction`);
       fetchData();
     } catch (contributionError) {
-      setError(contributionError?.response?.data?.error || 'Failed to contribute to goal');
+      showToast(contributionError?.response?.data?.error || 'Failed to contribute to goal', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm.id || !deleteConfirm.type) {
+      setDeleteConfirm({ show: false, type: null, id: null, label: '' });
+      return;
+    }
+
+    if (deleteConfirm.type === 'budget') {
+      await handleDeleteBudget(deleteConfirm.id, deleteConfirm.label);
+    } else {
+      await handleDeleteGoal(deleteConfirm.id, deleteConfirm.label);
+    }
+
+    setDeleteConfirm({ show: false, type: null, id: null, label: '' });
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirm({ show: false, type: null, id: null, label: '' });
+  };
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
+      {toast.show && (
+        <div
+          className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          }`}
+        >
+          {toast.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Delete {deleteConfirm.type === 'budget' ? 'Budget' : 'Saving Goal'}
+            </h3>
+            <p className="text-gray-600 text-sm mb-6">
+              Are you sure you want to delete {deleteConfirm.label}? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelDelete}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-8 text-left">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Budgets & Saving Goals</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Budgets and Saving Goals</h1>
             <p className="text-gray-500 text-sm">Set limits and track your journey to financial milestones.</p>
           </div>
-          <Button variant="primary" icon={Plus} onClick={fetchData} disabled={loading || actionLoading}>
-            Refresh
-          </Button>
         </div>
-
-        {error && <p className="mb-4 text-sm text-red-500 font-medium">{error}</p>}
-        {!error && message && <p className="mb-4 text-sm text-green-600 font-medium">{message}</p>}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <Card className="p-6">
@@ -412,7 +468,7 @@ const BudgetsGoals = () => {
                               <button onClick={() => handleStartEditBudget(budget)} className="text-gray-400 hover:text-blue-500">
                                 <Pencil size={16} />
                               </button>
-                              <button onClick={() => handleDeleteBudget(budget._id)} className="text-gray-400 hover:text-red-500">
+                              <button onClick={() => requestDeleteBudget(budget)} className="text-gray-400 hover:text-red-500">
                                 <Trash2 size={16} />
                               </button>
                             </div>
@@ -499,7 +555,7 @@ const BudgetsGoals = () => {
                                 <button onClick={() => handleStartEditGoal(goal)} className="text-indigo-400 hover:text-indigo-600">
                                   <Pencil size={16} />
                                 </button>
-                                <button onClick={() => handleDeleteGoal(goal._id)} className="text-indigo-400 hover:text-red-500">
+                                <button onClick={() => requestDeleteGoal(goal)} className="text-indigo-400 hover:text-red-500">
                                   <Trash2 size={16} />
                                 </button>
                               </div>

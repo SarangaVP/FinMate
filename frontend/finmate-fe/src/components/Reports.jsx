@@ -130,17 +130,12 @@ const Reports = () => {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-end mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Reports & Analytics</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Reports and Analytics</h1>
             <p className="text-gray-500 text-sm">Live insights from your income, spending, and category behavior.</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={fetchAnalytics} disabled={loading}>
-              Refresh
-            </Button>
-            <Button variant="primary" icon={Download} onClick={handleDownloadCsv} disabled={loading}>
-              Download CSV
-            </Button>
-          </div>
+          <Button variant="primary" icon={Download} onClick={handleDownloadCsv} disabled={loading}>
+            Download CSV
+          </Button>
         </div>
 
         {error && (
