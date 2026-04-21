@@ -10,7 +10,6 @@ import {
   UserCircle, 
   LogOut, 
   Wallet,
-  Search,
   Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -124,15 +123,6 @@ const Navbar = () => {
             <Wallet size={24} />
           </div>
           <span className="text-xl font-bold text-gray-800 tracking-tight italic">FinMate</span>
-        </div>
-
-        <div className="relative group">
-          <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500" size={16} />
-          <input 
-            type="text" 
-            placeholder="Search logs..." 
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-100 transition-all"
-          />
         </div>
       </div>
 
