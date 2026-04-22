@@ -1,8 +1,6 @@
 const SharedGroup = require('../models/SharedGroup');
 const User = require('../models/User');
 const Settlement = require('../models/Settlement');
-const Transaction = require('../models/Transaction');
-const { analyzeTransaction } = require('../services/aiService');
 
 // Get all groups for the current user
 exports.getGroups = async (req, res) => {
@@ -31,8 +29,8 @@ exports.getGroupById = async (req, res) => {
         }
 
         // Get settlements for this group
-        const settlements = await Settlement.find({ groupId: req.params.id })
-            .populate('payerId payeeId', 'name email');
+        const settlements = await Settlement.find({ groupID: req.params.id })
+            .populate('fromUser toUser', 'name email');
 
         res.status(200).json({ ...group.toObject(), settlements });
     } catch (error) {
@@ -239,11 +237,10 @@ exports.deleteGroup = async (req, res) => {
 // Settle a balance between two members
 exports.settleBalance = async (req, res) => {
     try {
-        const groupId = req.params.id;
-        const { payerId, payeeId, amount } = req.body;
+        const { groupId, fromUserId, toUserId, amount } = req.body;
 
-        if (!payerId || !payeeId || !amount) {
-            return res.status(400).json({ message: 'PayerId, payeeId, and amount are required' });
+        if (!groupId || !fromUserId || !toUserId || !amount) {
+            return res.status(400).json({ message: 'All fields are required' });
         }
 
         const group = await SharedGroup.findById(groupId);
@@ -259,11 +256,11 @@ exports.settleBalance = async (req, res) => {
 
         // Create settlement
         const settlement = new Settlement({
-            groupId: groupId,
-            payerId: payerId,
-            payeeId: payeeId,
+            groupID: groupId,
+            fromUser: fromUserId,
+            toUser: toUserId,
             amount,
-            status: 'Completed'
+            status: 'settled'
         });
 
         await settlement.save();
@@ -292,8 +289,8 @@ exports.getGroupBalances = async (req, res) => {
         }
 
         // Get all settlements for this group
-        const settlements = await Settlement.find({ groupId: groupId })
-            .populate('payerId payeeId', 'name email');
+        const settlements = await Settlement.find({ groupID: groupId })
+            .populate('fromUser toUser', 'name email');
 
         // Calculate net balances for each member
         const balances = {};
@@ -302,12 +299,12 @@ exports.getGroupBalances = async (req, res) => {
         });
 
         settlements.forEach(settlement => {
-            if (settlement.status === 'Completed') {
-                const payerId = settlement.payerId._id.toString();
-                const payeeId = settlement.payeeId._id.toString();
+            if (settlement.status !== 'settled') {
+                const fromId = settlement.fromUser._id.toString();
+                const toId = settlement.toUser._id.toString();
 
-                if (balances[payerId]) balances[payerId].balance -= settlement.amount;
-                if (balances[payeeId]) balances[payeeId].balance += settlement.amount;
+                if (balances[fromId]) balances[fromId].balance -= settlement.amount;
+                if (balances[toId]) balances[toId].balance += settlement.amount;
             }
         });
 
@@ -318,95 +315,5 @@ exports.getGroupBalances = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching group balances', error: error.message });
-    }
-};
-
-// Add a shared expense (Splitwise style)
-exports.addSharedExpense = async (req, res) => {
-    try {
-        const groupId = req.params.id; // Get from URL params instead of body
-        const { description, amount, splitWith, date } = req.body;
-
-        if (!description || !amount || !splitWith || splitWith.length === 0) {
-            return res.status(400).json({ message: 'Description, amount, and split members are required' });
-        }
-
-        const group = await SharedGroup.findById(groupId);
-
-        if (!group) {
-            return res.status(404).json({ message: 'Group not found' });
-        }
-
-        // Check if user is a member
-        if (!group.memberIDs.some(member => member.toString() === req.user.id)) {
-            return res.status(403).json({ message: 'You are not a member of this group' });
-        }
-
-        // Create transaction for the expense
-        const aiResult = await analyzeTransaction(description);
-        const category = aiResult.category || 'Shared Expense';
-
-        const transaction = new Transaction({
-            userId: req.user._id,
-            amount,
-            description,
-            category,
-            type: 'expense',
-            date: date || Date.now(),
-            groupId
-        });
-
-        const savedTransaction = await transaction.save();
-
-        // Calculate per-person amount
-        const perPersonAmount = amount / splitWith.length;
-
-        // Create settlements for each member except the payer
-        for (const memberId of splitWith) {
-            if (memberId !== req.user.id.toString()) {
-                const settlement = new Settlement({
-                    groupId: groupId,
-                    payerId: req.user._id,
-                    payeeId: memberId,
-                    transactionId: savedTransaction._id,
-                    amount: perPersonAmount,
-                    status: 'Pending'
-                });
-                await settlement.save();
-            }
-        }
-
-        res.status(201).json({
-            message: 'Shared expense added successfully',
-            transaction: savedTransaction
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Error adding shared expense', error: error.message });
-    }
-};
-
-// Get all expenses for a group
-exports.getGroupExpenses = async (req, res) => {
-    try {
-        const groupId = req.params.id;
-
-        const group = await SharedGroup.findById(groupId);
-
-        if (!group) {
-            return res.status(404).json({ message: 'Group not found' });
-        }
-
-        // Check if user is a member
-        if (!group.memberIDs.some(member => member.toString() === req.user.id)) {
-            return res.status(403).json({ message: 'You are not a member of this group' });
-        }
-
-        const expenses = await Transaction.find({ groupId })
-            .populate('userId', 'name email')
-            .sort({ date: -1 });
-
-        res.status(200).json(expenses);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching group expenses', error: error.message });
     }
 };

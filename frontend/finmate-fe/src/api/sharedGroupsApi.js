@@ -10,9 +10,6 @@ export const sharedGroupsApi = {
   // Get balances for a group
   getGroupBalances: (groupId) => API.get(`/shared-groups/${groupId}/balances`),
 
-  // Get expenses for a group
-  getGroupExpenses: (groupId) => API.get(`/shared-groups/${groupId}/expenses`),
-
   // Create a new group
   createGroup: (groupData) => API.post('/shared-groups', {
     groupName: groupData.groupName,
@@ -43,19 +40,8 @@ export const sharedGroupsApi = {
   deleteGroup: (groupId) => API.delete(`/shared-groups/${groupId}`),
 
   // Settle a balance between two members
-  settleBalance: (groupId, payerId, payeeId, amount) => API.post(
+  settleBalance: (groupId, fromUserId, toUserId, amount) => API.post(
     `/shared-groups/${groupId}/settle`,
-    { payerId, payeeId, amount }
-  ),
-
-  // Add a shared expense to a group (Splitwise style)
-  addSharedExpense: (groupId, expenseData) => API.post(
-    `/shared-groups/${groupId}/add-expense`,
-    {
-      description: expenseData.description,
-      amount: expenseData.amount,
-      splitWith: expenseData.splitWith,
-      date: expenseData.date
-    }
+    { groupId, fromUserId, toUserId, amount }
   )
 };
