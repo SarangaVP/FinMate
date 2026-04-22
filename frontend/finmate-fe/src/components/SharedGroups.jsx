@@ -1,18 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Users, UserPlus, ArrowRightLeft, CheckCircle2, MoreVertical, X, Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge } from './ui';
 import { sharedGroupsApi } from '../api/sharedGroupsApi';
+import { AuthContext } from '../context/AuthContext';
 
 const SharedGroups = () => {
+  const { user: authUser } = useContext(AuthContext);
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [formData, setFormData] = useState({ groupName: '', memberEmails: [] });
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [groupBalances, setGroupBalances] = useState(null);
+  const [expenseForm, setExpenseForm] = useState({ description: '', amount: '', splitWith: [] });
+  const [expenses, setExpenses] = useState([]);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -28,6 +33,7 @@ const SharedGroups = () => {
   useEffect(() => {
     if (selectedGroup) {
       fetchGroupBalances(selectedGroup._id);
+      fetchGroupExpenses(selectedGroup._id);
     }
   }, [selectedGroup]);
 
@@ -52,6 +58,15 @@ const SharedGroups = () => {
       setGroupBalances(response.data);
     } catch (err) {
       console.error('Failed to fetch balances:', err);
+    }
+  };
+
+  const fetchGroupExpenses = async (groupId) => {
+    try {
+      const response = await sharedGroupsApi.getGroupExpenses(groupId);
+      setExpenses(response.data || []);
+    } catch (err) {
+      console.error('Failed to fetch expenses:', err);
     }
   };
 
@@ -98,10 +113,10 @@ const SharedGroups = () => {
     }
   };
 
-  const handleSettleBalance = async (fromUserId, toUserId, amount) => {
+  const handleSettleBalance = async (payerId, payeeId, amount) => {
     try {
       setLoading(true);
-      await sharedGroupsApi.settleBalance(selectedGroup._id, fromUserId, toUserId, amount);
+      await sharedGroupsApi.settleBalance(selectedGroup._id, payerId, payeeId, amount);
       showToast('Balance settled successfully');
       fetchGroupBalances(selectedGroup._id);
     } catch (err) {
@@ -125,6 +140,41 @@ const SharedGroups = () => {
     setFormData({
       ...formData,
       memberEmails: formData.memberEmails.filter(e => e !== email)
+    });
+  };
+
+  const handleAddExpense = async (e) => {
+    e.preventDefault();
+    if (!expenseForm.description.trim() || !expenseForm.amount || expenseForm.splitWith.length === 0) {
+      showToast('Description, amount, and at least one member to split with are required', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await sharedGroupsApi.addSharedExpense(selectedGroup._id, {
+        description: expenseForm.description,
+        amount: parseFloat(expenseForm.amount),
+        splitWith: expenseForm.splitWith
+      });
+      showToast('Shared expense added successfully');
+      setShowAddExpenseModal(false);
+      setExpenseForm({ description: '', amount: '', splitWith: [] });
+      fetchGroupBalances(selectedGroup._id);
+      fetchGroupExpenses(selectedGroup._id);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to add expense', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleMemberSelection = (memberId) => {
+    setExpenseForm({
+      ...expenseForm,
+      splitWith: expenseForm.splitWith.includes(memberId)
+        ? expenseForm.splitWith.filter(id => id !== memberId)
+        : [...expenseForm.splitWith, memberId]
     });
   };
 
@@ -284,6 +334,81 @@ const SharedGroups = () => {
           </div>
         )}
 
+        {/* Add Shared Expense Modal */}
+        {showAddExpenseModal && selectedGroup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Add Shared Expense</h2>
+                <button onClick={() => setShowAddExpenseModal(false)} className="text-gray-500 hover:text-gray-700">
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={handleAddExpense} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Expense Description</label>
+                  <input
+                    type="text"
+                    value={expenseForm.description}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., Dinner, Groceries"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Amount (LKR)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={expenseForm.amount}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Split With (Select Members)</label>
+                  <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                    {selectedGroup.memberIDs?.map(member => (
+                      <label key={member._id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={expenseForm.splitWith.includes(member._id)}
+                          onChange={() => toggleMemberSelection(member._id)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm text-gray-700">{member.name || member.email}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddExpenseModal(false);
+                      setExpenseForm({ description: '', amount: '', splitWith: [] });
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Adding...' : 'Add Expense'}
+                  </button>
+                </div>
+              </form>
+            </Card>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column: Group List */}
           <div className="lg:col-span-1 space-y-4">
@@ -368,11 +493,13 @@ const SharedGroups = () => {
                                   LKR {Math.abs(item.balance).toLocaleString()}
                                 </p>
                                 <button
-                                  onClick={() => handleSettleBalance(
-                                    isOwed ? item.user._id : selectedGroup.memberIDs[0]._id,
-                                    isOwed ? selectedGroup.memberIDs[0]._id : item.user._id,
-                                    Math.abs(item.balance)
-                                  )}
+                                  onClick={() => {
+                                    // If balance is negative, current user owes item.user (they are payer, we are payee)
+                                    // If balance is positive, item.user owes us (we are payer, they are payee)
+                                    const payerId = isOwed ? authUser._id : item.user._id;
+                                    const payeeId = isOwed ? item.user._id : authUser._id;
+                                    handleSettleBalance(payerId, payeeId, Math.abs(item.balance));
+                                  }}
                                   className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 ml-auto mt-1"
                                 >
                                   <CheckCircle2 size={12} /> Mark Settled
@@ -392,10 +519,31 @@ const SharedGroups = () => {
                   <Button
                     variant="secondary"
                     icon={ArrowRightLeft}
+                    onClick={() => setShowAddExpenseModal(true)}
                     className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
                   >
                     Add Shared Expense to this Group
                   </Button>
+
+                  {/* Recent Expenses */}
+                  {expenses.length > 0 && (
+                    <div className="mt-8">
+                      <h4 className="font-semibold text-gray-800 mb-4">Recent Expenses</h4>
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {expenses.slice(0, 5).map(expense => (
+                          <div key={expense._id} className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-semibold text-gray-800">{expense.description}</p>
+                                <p className="text-xs text-gray-500">{expense.userId?.name || 'Unknown'}</p>
+                              </div>
+                              <p className="font-bold text-gray-800">LKR {parseFloat(expense.amount).toLocaleString('en-LK', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>
