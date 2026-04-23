@@ -2,6 +2,7 @@ const SharedExpense = require('../models/SharedExpense');
 const SharedGroup = require('../models/SharedGroup');
 const Settlement = require('../models/Settlement');
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
 
 // Add a new shared expense
 exports.addExpense = async (req, res) => {
@@ -22,6 +23,12 @@ exports.addExpense = async (req, res) => {
             return res.status(403).json({ message: 'You are not a member of this group' });
         }
 
+        // Filter out the payer from participants to avoid duplicate transactions
+        const filteredParticipants = participants.filter(p => {
+            const participantId = p.userID || p;
+            return participantId.toString() !== req.user.id.toString();
+        });
+
         // Create the expense
         const expense = new SharedExpense({
             groupID,
@@ -29,7 +36,7 @@ exports.addExpense = async (req, res) => {
             amount,
             paidBy: req.user.id,
             splitType: splitType || 'equal',
-            participants,
+            participants: filteredParticipants,
             category: category || 'General',
             createdBy: req.user.id
         });
@@ -41,7 +48,20 @@ exports.addExpense = async (req, res) => {
         // Create settlements for unpaid amounts
         await createSettlements(expense);
 
-        res.status(201).json({ message: 'Expense added successfully', expense });
+        // Create a transaction for the payer (who paid the full amount)
+        const transaction = new Transaction({
+            userId: req.user.id,
+            amount: amount,
+            description: `Shared expense: ${description}`,
+            category: category || 'General',
+            type: 'expense',
+            date: new Date(),
+            groupId: groupID
+        });
+
+        await transaction.save();
+
+        res.status(201).json({ message: 'Expense added successfully', expense, transaction });
     } catch (error) {
         res.status(500).json({ message: 'Error adding expense', error: error.message });
     }
@@ -50,7 +70,7 @@ exports.addExpense = async (req, res) => {
 // Create settlement records from an expense
 const createSettlements = async (expense) => {
     try {
-        // For each participant who is not the payer, create a settlement
+        // For each participant who is not the payer, create a settlement and transaction
         for (const participant of expense.participants) {
             const userId = participant.userID._id || participant.userID;
             
@@ -67,21 +87,39 @@ const createSettlements = async (expense) => {
                 status: 'Pending'
             });
 
+            let settlement;
             if (existingSettlement) {
                 // Update existing settlement
                 existingSettlement.amount += participant.amount;
-                await existingSettlement.save();
+                settlement = await existingSettlement.save();
             } else {
                 // Create new settlement
-                const settlement = new Settlement({
+                settlement = new Settlement({
                     groupId: expense.groupID,
                     payerId: userId,
                     payeeId: expense.paidBy,
                     amount: participant.amount,
                     status: 'Pending'
                 });
-                await settlement.save();
+                settlement = await settlement.save();
             }
+
+            // Create transaction for the participant (their share as an expense)
+            const participantTransaction = new Transaction({
+                userId: userId,
+                amount: participant.amount,
+                description: `Shared expense: ${expense.description}`,
+                category: expense.category || 'General',
+                type: 'expense',
+                date: expense.date,
+                groupId: expense.groupID
+            });
+
+            await participantTransaction.save();
+
+            // Link the transaction to the settlement
+            settlement.transactionId = participantTransaction._id;
+            await settlement.save();
         }
     } catch (error) {
         console.error('Error creating settlements:', error);
@@ -190,6 +228,23 @@ exports.deleteExpense = async (req, res) => {
         if (expense.createdBy.toString() !== req.user.id) {
             return res.status(403).json({ message: 'You can only delete your own expenses' });
         }
+
+        // Get related settlements to find and delete their transactions
+        const settlements = await Settlement.find({ groupId: expense.groupID });
+        
+        for (const settlement of settlements) {
+            if (settlement.transactionId) {
+                await Transaction.findByIdAndDelete(settlement.transactionId);
+            }
+        }
+
+        // Delete the main expense transaction (payer's transaction)
+        await Transaction.deleteMany({
+            description: `Shared expense: ${expense.description}`,
+            userId: expense.paidBy,
+            groupId: expense.groupID,
+            type: 'expense'
+        });
 
         // Delete related settlements
         await Settlement.deleteMany({
