@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, ArrowRightLeft, CheckCircle2, MoreVertical, X, Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge } from './ui';
-import { sharedGroupsApi } from '../api/sharedGroupsApi';
+import { sharedGroupsApi, sharedExpensesApi } from '../api/sharedGroupsApi';
+import AddExpenseModal from './AddExpenseModal';
 
 const SharedGroups = () => {
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [formData, setFormData] = useState({ groupName: '', memberEmails: [] });
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [groupBalances, setGroupBalances] = useState(null);
+  const [groupExpenses, setGroupExpenses] = useState([]);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -28,6 +31,7 @@ const SharedGroups = () => {
   useEffect(() => {
     if (selectedGroup) {
       fetchGroupBalances(selectedGroup._id);
+      fetchGroupExpenses(selectedGroup._id);
     }
   }, [selectedGroup]);
 
@@ -52,6 +56,15 @@ const SharedGroups = () => {
       setGroupBalances(response.data);
     } catch (err) {
       console.error('Failed to fetch balances:', err);
+    }
+  };
+
+  const fetchGroupExpenses = async (groupId) => {
+    try {
+      const response = await sharedExpensesApi.getGroupExpenses(groupId);
+      setGroupExpenses(response.data);
+    } catch (err) {
+      console.error('Failed to fetch expenses:', err);
     }
   };
 
@@ -126,6 +139,24 @@ const SharedGroups = () => {
       ...formData,
       memberEmails: formData.memberEmails.filter(e => e !== email)
     });
+  };
+
+  const handleAddExpense = async (expenseData) => {
+    try {
+      setLoading(true);
+      await sharedExpensesApi.addExpense({
+        groupID: selectedGroup._id,
+        ...expenseData
+      });
+      showToast('Expense added successfully');
+      setShowAddExpenseModal(false);
+      fetchGroupExpenses(selectedGroup._id);
+      fetchGroupBalances(selectedGroup._id);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to add expense', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading && groups.length === 0) {
@@ -284,6 +315,17 @@ const SharedGroups = () => {
           </div>
         )}
 
+        {/* Add Expense Modal */}
+        {showAddExpenseModal && selectedGroup && (
+          <AddExpenseModal
+            isOpen={showAddExpenseModal}
+            onClose={() => setShowAddExpenseModal(false)}
+            onSubmit={handleAddExpense}
+            groupMembers={selectedGroup.memberIDs || []}
+            loading={loading}
+          />
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column: Group List */}
           <div className="lg:col-span-1 space-y-4">
@@ -348,6 +390,32 @@ const SharedGroups = () => {
                     <UserPlus size={16} /> Add Member
                   </button>
 
+                  {/* Expenses Section */}
+                  <div className="mb-6 pb-6 border-b border-gray-200">
+                    <h4 className="font-semibold text-gray-800 mb-4">Recent Expenses</h4>
+                    {groupExpenses && groupExpenses.length > 0 ? (
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {groupExpenses.slice(0, 5).map((expense) => (
+                          <div key={expense._id} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <p className="font-semibold text-gray-800 text-sm">{expense.description}</p>
+                                <p className="text-xs text-gray-500">{expense.category}</p>
+                              </div>
+                              <span className="font-bold text-gray-800">₹{expense.amount.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-gray-600">
+                              <span>Paid by {expense.paidBy.name || expense.paidBy.email}</span>
+                              <span className="text-blue-600 font-semibold">{expense.participants.length} split</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No expenses yet. Add one to get started!</p>
+                    )}
+                  </div>
+
                   {groupBalances && groupBalances.balances && groupBalances.balances.length > 0 ? (
                     <>
                       <h4 className="font-semibold text-gray-800 mb-4">Outstanding Balances</h4>
@@ -392,6 +460,7 @@ const SharedGroups = () => {
                   <Button
                     variant="secondary"
                     icon={ArrowRightLeft}
+                    onClick={() => setShowAddExpenseModal(true)}
                     className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
                   >
                     Add Shared Expense to this Group

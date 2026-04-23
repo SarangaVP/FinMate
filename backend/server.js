@@ -11,6 +11,7 @@ const recurringRoutes = require('./src/routes/recurringRoutes');
 const budgetGoalRoutes = require('./src/routes/budgetGoalRoutes');
 const reportRoutes = require('./src/routes/reportRoutes');
 const sharedGroupRoutes = require('./src/routes/sharedGroupRoutes');
+const sharedExpenseRoutes = require('./src/routes/sharedExpenseRoutes');
 
 connectDB();
 
@@ -34,6 +35,7 @@ app.use('/api/recurring', recurringRoutes);
 app.use('/api/planning', budgetGoalRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/shared-groups', sharedGroupRoutes);
+app.use('/api/shared-expenses', sharedExpenseRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).json({ 

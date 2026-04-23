@@ -45,3 +45,23 @@ export const sharedGroupsApi = {
     { groupId, fromUserId, toUserId, amount }
   )
 };
+
+export const sharedExpensesApi = {
+  // Get all expenses for a group
+  getGroupExpenses: (groupId) => API.get(`/shared-expenses/group/${groupId}`),
+
+  // Get a specific expense
+  getExpenseById: (expenseId) => API.get(`/shared-expenses/${expenseId}`),
+
+  // Add a new shared expense
+  addExpense: (expenseData) => API.post('/shared-expenses', expenseData),
+
+  // Update an expense
+  updateExpense: (expenseId, expenseData) => API.put(`/shared-expenses/${expenseId}`, expenseData),
+
+  // Delete an expense
+  deleteExpense: (expenseId) => API.delete(`/shared-expenses/${expenseId}`),
+
+  // Calculate group balance (who owes whom)
+  calculateGroupBalance: (groupId) => API.get(`/shared-expenses/balance/${groupId}`)
+};
