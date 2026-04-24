@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Plus, Trash2, Equal, Users } from 'lucide-react';
 import { Card } from './ui';
 
-const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading }) => {
+const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, payerCurrency = 'USD' }) => {
   const [activeTab, setActiveTab] = useState('equal'); // 'equal' or 'custom'
   const [formData, setFormData] = useState({
     description: '',
@@ -229,17 +229,17 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading }) =
               {activeTab === 'equal' ? (
                 <div className="space-y-3">
                   <p className="text-sm text-gray-600">
-                    Total Amount: <span className="font-bold">${parseFloat(formData.amount).toFixed(2)}</span>
+                    Total Amount: <span className="font-bold">{payerCurrency} {parseFloat(formData.amount).toFixed(2)}</span>
                   </p>
                   <p className="text-sm text-gray-600">
-                    Per Person: <span className="font-bold">${calculateSplitAmount().toFixed(2)}</span>
+                    Per Person: <span className="font-bold">{payerCurrency} {calculateSplitAmount().toFixed(2)}</span>
                   </p>
                   <div className="space-y-2">
                     {getSelectedMembers().map(member => (
                       <div key={member._id} className="flex justify-between text-sm bg-white p-2 rounded">
                         <span className="text-gray-700">{member.name || member.email}</span>
                         <span className="font-semibold text-gray-800">
-                          ${calculateSplitAmount().toFixed(2)}
+                          {payerCurrency} {calculateSplitAmount().toFixed(2)}
                         </span>
                       </div>
                     ))}
@@ -248,7 +248,7 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading }) =
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm text-gray-600">
-                    Total: <span className="font-bold">${parseFloat(formData.amount).toFixed(2)}</span>
+                    Total: <span className="font-bold">{payerCurrency} {parseFloat(formData.amount).toFixed(2)}</span>
                   </p>
                   <div className="space-y-2">
                     {getSelectedMembers().map(member => (
@@ -265,7 +265,7 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading }) =
                           placeholder="0.00"
                           className="flex-1 px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
-                        <span className="text-sm text-gray-700">$</span>
+                        <span className="text-sm text-gray-700">{payerCurrency}</span>
                       </div>
                     ))}
                   </div>
@@ -273,7 +273,7 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading }) =
                     <div className="pt-2 border-t border-gray-200">
                       <p className="text-sm text-gray-600">
                         Allocated: <span className="font-bold">
-                          ${Object.values(customAmounts).reduce((a, b) => a + b, 0).toFixed(2)}
+                          {payerCurrency} {Object.values(customAmounts).reduce((a, b) => a + b, 0).toFixed(2)}
                         </span>
                       </p>
                     </div>

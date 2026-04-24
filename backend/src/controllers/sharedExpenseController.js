@@ -4,7 +4,6 @@ const Settlement = require('../models/Settlement');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 
-// Add a new shared expense
 exports.addExpense = async (req, res) => {
     try {
         const { groupID, description, amount, splitType, participants, category } = req.body;
@@ -13,7 +12,6 @@ exports.addExpense = async (req, res) => {
             return res.status(400).json({ message: 'Missing required fields' });
         }
 
-        // Verify user is part of the group
         const group = await SharedGroup.findById(groupID);
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
@@ -29,7 +27,6 @@ exports.addExpense = async (req, res) => {
             return participantId.toString() !== req.user.id.toString();
         });
 
-        // Create the expense
         const expense = new SharedExpense({
             groupID,
             description,
@@ -42,10 +39,9 @@ exports.addExpense = async (req, res) => {
         });
 
         await expense.save();
-        await expense.populate('paidBy', 'name email');
+        await expense.populate('paidBy', 'name email primaryCurrency');
         await expense.populate('participants.userID', 'name email');
 
-        // Create settlements for unpaid amounts
         await createSettlements(expense);
 
         // Create a transaction for the payer (who paid the full amount)
@@ -141,7 +137,7 @@ exports.getGroupExpenses = async (req, res) => {
         }
 
         const expenses = await SharedExpense.find({ groupID })
-            .populate('paidBy', 'name email')
+            .populate('paidBy', 'name email primaryCurrency')
             .populate('participants.userID', 'name email')
             .populate('createdBy', 'name email')
             .sort({ date: -1 });
@@ -159,7 +155,7 @@ exports.getExpenseById = async (req, res) => {
 
         const expense = await SharedExpense.findById(id)
             .populate('groupID')
-            .populate('paidBy', 'name email')
+            .populate('paidBy', 'name email primaryCurrency')
             .populate('participants.userID', 'name email')
             .populate('createdBy', 'name email');
 

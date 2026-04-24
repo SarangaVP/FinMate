@@ -323,6 +323,7 @@ const SharedGroups = () => {
             onSubmit={handleAddExpense}
             groupMembers={selectedGroup.memberIDs || []}
             loading={loading}
+            payerCurrency={selectedGroup.memberIDs?.[0]?.primaryCurrency || 'USD'}
           />
         )}
 
@@ -402,7 +403,7 @@ const SharedGroups = () => {
                                 <p className="font-semibold text-gray-800 text-sm">{expense.description}</p>
                                 <p className="text-xs text-gray-500">{expense.category}</p>
                               </div>
-                              <span className="font-bold text-gray-800">₹{expense.amount.toFixed(2)}</span>
+                              <span className="font-bold text-gray-800">{expense.paidBy?.primaryCurrency} {expense.amount.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center text-xs text-gray-600">
                               <span>Paid by {expense.paidBy.name || expense.paidBy.email}</span>
@@ -423,6 +424,8 @@ const SharedGroups = () => {
                         {groupBalances.balances.map((item, idx) => {
                           if (item.balance === 0) return null;
                           const isOwed = item.balance > 0;
+                          // Get currency from the selected group's first member (usually the payer)
+                          const currency = selectedGroup.memberIDs?.[0]?.primaryCurrency || 'USD';
 
                           return (
                             <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
@@ -433,7 +436,7 @@ const SharedGroups = () => {
                               </div>
                               <div className="text-right">
                                 <p className={`text-lg font-black ${isOwed ? 'text-green-600' : 'text-red-400'}`}>
-                                  LKR {Math.abs(item.balance).toLocaleString()}
+                                  {currency} {Math.abs(item.balance).toLocaleString()}
                                 </p>
                                 <button
                                   onClick={() => handleSettleBalance(
