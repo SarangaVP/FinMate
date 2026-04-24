@@ -253,7 +253,7 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading }) =
                   <div className="space-y-2">
                     {getSelectedMembers().map(member => (
                       <div key={member._id} className="flex items-center gap-2">
-                        <span className="text-sm text-gray-700 min-w-[150px]">
+                        <span className="text-sm text-gray-700 min-w-37.5">
                           {member.name || member.email}
                         </span>
                         <input

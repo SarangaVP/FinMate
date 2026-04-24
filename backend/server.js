@@ -18,7 +18,6 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000; 
 
-// CORS must come BEFORE routes
 app.use(cors({
     origin: 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -27,7 +26,6 @@ app.use(cors({
 
 app.use(express.json());
 
-// Routes come AFTER cors and json middleware
 app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/users', userRoutes);

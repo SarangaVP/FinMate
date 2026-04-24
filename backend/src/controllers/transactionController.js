@@ -26,8 +26,6 @@ const adjustBudgetsForTransaction = async (userId, transaction, direction = 1) =
     }
 };
 
-// @desc    Create a new transaction with AI categorization
-// @route   POST /api/transactions
 exports.createTransaction = async (req, res) => {
     try {
         const { amount, description, type, date, groupId } = req.body;
@@ -55,8 +53,6 @@ exports.createTransaction = async (req, res) => {
     }
 };
 
-// @desc    Get all transactions for the logged-in user
-// @route   GET /api/transactions
 exports.getTransactions = async (req, res) => {
     try {
         const transactions = await Transaction.find({ userId: req.user._id }).sort({ createdAt: -1 });
@@ -66,8 +62,6 @@ exports.getTransactions = async (req, res) => {
     }
 };
 
-// @desc    Update a transaction
-// @route   PUT /api/transactions/:id
 exports.updateTransaction = async (req, res) => {
     try {
         const { id } = req.params;
@@ -96,8 +90,6 @@ exports.updateTransaction = async (req, res) => {
     }
 };
 
-// @desc    Delete a transaction
-// @route   DELETE /api/transactions/:id
 exports.deleteTransaction = async (req, res) => {
     try {
         const { id } = req.params;
@@ -115,8 +107,6 @@ exports.deleteTransaction = async (req, res) => {
     }
 };
 
-// @desc    Get dashboard summary (totals for income, expense, balance)
-// @route   GET /api/transactions/summary
 exports.getDashboardSummary = async (req, res) => {
     try {
         const userId = req.user._id;
