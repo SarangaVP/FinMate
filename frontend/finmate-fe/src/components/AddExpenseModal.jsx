@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Equal, Users } from 'lucide-react';
 import { Card } from './ui';
 
-const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, payerCurrency = 'USD' }) => {
+const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, payerCurrency = 'USD', initialExpense = null }) => {
   const [activeTab, setActiveTab] = useState('equal'); // 'equal' or 'custom'
   const [formData, setFormData] = useState({
     description: '',
@@ -11,6 +11,33 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
     selectedMembers: {}
   });
   const [customAmounts, setCustomAmounts] = useState({});
+
+  // Initialize form with existing expense data if editing
+  useEffect(() => {
+    if (initialExpense) {
+      setFormData({
+        description: initialExpense.description,
+        amount: initialExpense.amount.toString(),
+        category: initialExpense.category,
+        selectedMembers: initialExpense.participants.reduce((acc, p) => {
+          acc[p.userID._id] = true;
+          return acc;
+        }, {})
+      });
+      
+      if (initialExpense.splitType === 'custom') {
+        setActiveTab('custom');
+        const amounts = {};
+        initialExpense.participants.forEach(p => {
+          amounts[p.userID._id] = p.amount;
+        });
+        setCustomAmounts(amounts);
+      } else {
+        setActiveTab('equal');
+        setCustomAmounts({});
+      }
+    }
+  }, [initialExpense, isOpen]);
 
   const handleMemberToggle = (memberId) => {
     setFormData(prev => ({
@@ -104,7 +131,9 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
       <Card className="w-full max-w-2xl p-6 my-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Add Shared Expense</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            {initialExpense ? 'Edit Shared Expense' : 'Add Shared Expense'}
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
@@ -297,7 +326,7 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
               disabled={loading}
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-semibold"
             >
-              {loading ? 'Adding Expense...' : 'Add Expense'}
+              {loading ? (initialExpense ? 'Updating...' : 'Adding...') : (initialExpense ? 'Update Expense' : 'Add Expense')}
             </button>
           </div>
         </form>

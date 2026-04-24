@@ -16,6 +16,8 @@ const SharedGroups = () => {
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [groupBalances, setGroupBalances] = useState(null);
   const [groupExpenses, setGroupExpenses] = useState([]);
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
+  const [expandedExpense, setExpandedExpense] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -154,6 +156,40 @@ const SharedGroups = () => {
       fetchGroupBalances(selectedGroup._id);
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to add expense', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId) => {
+    if (!window.confirm('Are you sure you want to delete this expense? This will also update all balances.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await sharedExpensesApi.deleteExpense(expenseId);
+      showToast('Expense deleted successfully');
+      fetchGroupExpenses(selectedGroup._id);
+      fetchGroupBalances(selectedGroup._id);
+      setExpandedExpense(null);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to delete expense', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditExpense = async (expenseId, expenseData) => {
+    try {
+      setLoading(true);
+      await sharedExpensesApi.updateExpense(expenseId, expenseData);
+      showToast('Expense updated successfully');
+      setEditingExpenseId(null);
+      fetchGroupExpenses(selectedGroup._id);
+      fetchGroupBalances(selectedGroup._id);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update expense', 'error');
     } finally {
       setLoading(false);
     }
@@ -315,15 +351,25 @@ const SharedGroups = () => {
           </div>
         )}
 
-        {/* Add Expense Modal */}
-        {showAddExpenseModal && selectedGroup && (
+        {/* Add/Edit Expense Modal */}
+        {(showAddExpenseModal || editingExpenseId) && selectedGroup && (
           <AddExpenseModal
-            isOpen={showAddExpenseModal}
-            onClose={() => setShowAddExpenseModal(false)}
-            onSubmit={handleAddExpense}
+            isOpen={showAddExpenseModal || !!editingExpenseId}
+            onClose={() => {
+              setShowAddExpenseModal(false);
+              setEditingExpenseId(null);
+            }}
+            onSubmit={(expenseData) => {
+              if (editingExpenseId) {
+                handleEditExpense(editingExpenseId, expenseData);
+              } else {
+                handleAddExpense(expenseData);
+              }
+            }}
             groupMembers={selectedGroup.memberIDs || []}
             loading={loading}
             payerCurrency={selectedGroup.memberIDs?.[0]?.primaryCurrency || 'USD'}
+            initialExpense={editingExpenseId ? groupExpenses.find(e => e._id === editingExpenseId) : null}
           />
         )}
 
@@ -399,16 +445,45 @@ const SharedGroups = () => {
                         {groupExpenses.slice(0, 5).map((expense) => (
                           <div key={expense._id} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                             <div className="flex justify-between items-start mb-2">
-                              <div>
+                              <div className="flex-1">
                                 <p className="font-semibold text-gray-800 text-sm">{expense.description}</p>
                                 <p className="text-xs text-gray-500">{expense.category}</p>
                               </div>
-                              <span className="font-bold text-gray-800">{expense.paidBy?.primaryCurrency} {expense.amount.toFixed(2)}</span>
+                              <div className="text-right flex items-start gap-2">
+                                <span className="font-bold text-gray-800">{expense.paidBy?.primaryCurrency} {expense.amount.toFixed(2)}</span>
+                                {expense.createdBy?._id === expense.paidBy?._id && (
+                                  <button
+                                    onClick={() => setExpandedExpense(expandedExpense === expense._id ? null : expense._id)}
+                                    className="text-gray-400 hover:text-gray-600 p-1"
+                                  >
+                                    <MoreVertical size={14} />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <div className="flex justify-between items-center text-xs text-gray-600">
                               <span>Paid by {expense.paidBy.name || expense.paidBy.email}</span>
                               <span className="text-blue-600 font-semibold">{expense.participants.length} split</span>
                             </div>
+                            {expandedExpense === expense._id && (
+                              <div className="mt-3 pt-3 border-t border-gray-200 flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingExpenseId(expense._id);
+                                    setExpandedExpense(null);
+                                  }}
+                                  className="flex-1 text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 font-semibold"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExpense(expense._id)}
+                                  className="flex-1 text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 font-semibold"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

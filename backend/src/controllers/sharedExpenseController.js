@@ -181,7 +181,8 @@ exports.updateExpense = async (req, res) => {
         const { description, amount, splitType, participants, category } = req.body;
 
         const expense = await SharedExpense.findById(id)
-            .populate('groupID');
+            .populate('groupID')
+            .populate('paidBy', 'name email primaryCurrency');
 
         if (!expense) {
             return res.status(404).json({ message: 'Expense not found' });
@@ -192,6 +193,9 @@ exports.updateExpense = async (req, res) => {
             return res.status(403).json({ message: 'You can only edit your own expenses' });
         }
 
+        const oldDescription = expense.description;
+        const oldAmount = expense.amount;
+
         // Update fields
         if (description) expense.description = description;
         if (amount) expense.amount = amount;
@@ -200,7 +204,44 @@ exports.updateExpense = async (req, res) => {
         if (category) expense.category = category;
 
         await expense.save();
-        await expense.populate('paidBy', 'name email');
+
+        // Update the payer's transaction (full amount)
+        await Transaction.findOneAndUpdate(
+            {
+                userId: expense.paidBy,
+                description: `Shared expense: ${oldDescription}`,
+                groupId: expense.groupID,
+                type: 'expense'
+            },
+            {
+                amount: amount || oldAmount,
+                description: `Shared expense: ${description || oldDescription}`,
+                category: category || expense.category
+            }
+        );
+
+        // Delete old participant transactions and settlements
+        const oldSettlements = await Settlement.find({ 
+            groupId: expense.groupID,
+            amount: { $exists: true }
+        });
+
+        for (const settlement of oldSettlements) {
+            if (settlement.transactionId) {
+                await Transaction.findByIdAndDelete(settlement.transactionId);
+            }
+        }
+
+        // Delete old settlements
+        await Settlement.deleteMany({
+            groupId: expense.groupID,
+            amount: { $exists: true }
+        });
+
+        // Recreate settlements and transactions with new amounts
+        await createSettlements(expense);
+
+        await expense.populate('paidBy', 'name email primaryCurrency');
         await expense.populate('participants.userID', 'name email');
 
         res.status(200).json({ message: 'Expense updated successfully', expense });
