@@ -173,6 +173,7 @@ const SharedGroups = () => {
       });
       showToast('Expense added successfully');
       setShowAddExpenseModal(false);
+      fetchGroups();
       fetchGroupExpenses(selectedGroup._id);
       fetchGroupBalances(selectedGroup._id);
     } catch (err) {
@@ -191,6 +192,7 @@ const SharedGroups = () => {
       setLoading(true);
       await sharedExpensesApi.deleteExpense(expenseId);
       showToast('Expense deleted successfully');
+      fetchGroups();
       fetchGroupExpenses(selectedGroup._id);
       fetchGroupBalances(selectedGroup._id);
       setExpandedExpense(null);
@@ -207,6 +209,7 @@ const SharedGroups = () => {
       await sharedExpensesApi.updateExpense(expenseId, expenseData);
       showToast('Expense updated successfully');
       setEditingExpenseId(null);
+      fetchGroups();
       fetchGroupExpenses(selectedGroup._id);
       fetchGroupBalances(selectedGroup._id);
     } catch (err) {

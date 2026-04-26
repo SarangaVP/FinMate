@@ -203,9 +203,10 @@ exports.updateExpense = async (req, res) => {
             }
         );
 
-        // Delete old participant transactions and settlements
+        // Delete old settlements related to this expense (where payee is the payer)
         const oldSettlements = await Settlement.find({ 
-            groupId: expense.groupID
+            groupId: expense.groupID,
+            payeeId: expense.paidBy
         });
 
         for (const settlement of oldSettlements) {
@@ -215,14 +216,11 @@ exports.updateExpense = async (req, res) => {
             if (settlement.incomeTransactionId) {
                 await Transaction.findByIdAndDelete(settlement.incomeTransactionId);
             }
+            // Delete the settlement itself
+            await Settlement.findByIdAndDelete(settlement._id);
         }
 
-        // Delete old settlements
-        await Settlement.deleteMany({
-            groupId: expense.groupID
-        });
-
-        // Recreate settlements and transactions with new amounts
+        // Recreate settlements with new amounts
         await createSettlements(expense);
 
         await expense.populate('paidBy', 'name email primaryCurrency');
@@ -250,29 +248,33 @@ exports.deleteExpense = async (req, res) => {
             return res.status(403).json({ message: 'You can only delete your own expenses' });
         }
 
-        // Get related settlements to find and delete their transactions
-        const settlements = await Settlement.find({ groupId: expense.groupID });
-        
+        // Find all settlements related to this expense (where payer is one of participants and payee is the payer)
+        const settlements = await Settlement.find({
+            groupId: expense.groupID,
+            payeeId: expense.paidBy
+        });
+
+        // For each settlement, delete both its expense and income transactions
         for (const settlement of settlements) {
-            if (settlement.transactionId) {
-                await Transaction.findByIdAndDelete(settlement.transactionId);
+            if (settlement.expenseTransactionId) {
+                await Transaction.findByIdAndDelete(settlement.expenseTransactionId);
             }
+            if (settlement.incomeTransactionId) {
+                await Transaction.findByIdAndDelete(settlement.incomeTransactionId);
+            }
+            // Delete the settlement itself
+            await Settlement.findByIdAndDelete(settlement._id);
         }
 
-        // Delete the main expense transaction (payer's transaction)
-        await Transaction.deleteMany({
+        // Delete the main expense transaction (payer's transaction for paying the full amount)
+        await Transaction.findOneAndDelete({
             description: `Shared expense: ${expense.description}`,
             userId: expense.paidBy,
             groupId: expense.groupID,
             type: 'expense'
         });
 
-        // Delete related settlements
-        await Settlement.deleteMany({
-            groupId: expense.groupID,
-            amount: { $exists: true }
-        });
-
+        // Delete the expense record
         await SharedExpense.findByIdAndDelete(id);
 
         res.status(200).json({ message: 'Expense deleted successfully' });
