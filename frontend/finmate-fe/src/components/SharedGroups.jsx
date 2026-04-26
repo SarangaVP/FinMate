@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, ArrowRightLeft, CheckCircle2, MoreVertical, X, Plus, AlertCircle, CheckCircle } from 'lucide-react';
+import { Users, UserPlus, ArrowRightLeft, CheckCircle2, MoreVertical, X, Plus, AlertCircle, CheckCircle, Send } from 'lucide-react';
 import { Card, CardHeader, Button, Badge } from './ui';
 import { sharedGroupsApi, sharedExpensesApi } from '../api/sharedGroupsApi';
 import { useAuth } from '../context/AuthContext';
 import AddExpenseModal from './AddExpenseModal';
+import SettlePaymentModal from './SettlePaymentModal';
+import settlementsApi from '../api/settlementsApi';
 
 const SharedGroups = () => {
   const { user } = useAuth();
@@ -12,6 +14,8 @@ const SharedGroups = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [showSettlePaymentModal, setShowSettlePaymentModal] = useState(false);
+  const [selectedSettlement, setSelectedSettlement] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [formData, setFormData] = useState({ groupName: '', memberEmails: [] });
@@ -123,6 +127,21 @@ const SharedGroups = () => {
       fetchGroupBalances(selectedGroup._id);
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to settle balance', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaySettlement = async (amount) => {
+    try {
+      setLoading(true);
+      await settlementsApi.paySettlement(selectedSettlement._id, amount);
+      showToast('Settlement paid successfully');
+      setShowSettlePaymentModal(false);
+      setSelectedSettlement(null);
+      fetchGroupBalances(selectedGroup._id);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to pay settlement', 'error');
     } finally {
       setLoading(false);
     }
@@ -379,6 +398,21 @@ const SharedGroups = () => {
           />
         )}
 
+        {/* Settlement Payment Modal */}
+        {selectedSettlement && (
+          <SettlePaymentModal
+            isOpen={showSettlePaymentModal}
+            onClose={() => {
+              setShowSettlePaymentModal(false);
+              setSelectedSettlement(null);
+            }}
+            onSubmit={handlePaySettlement}
+            settlement={selectedSettlement}
+            loading={loading}
+            currency={user?.primaryCurrency || 'USD'}
+          />
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column: Group List */}
           <div className="lg:col-span-1 space-y-4">
@@ -500,30 +534,69 @@ const SharedGroups = () => {
 
                   {groupBalances && groupBalances.balances && groupBalances.balances.length > 0 ? (
                     <>
+                      {/* Pending Settlements */}
+                      {groupBalances.settlements && groupBalances.settlements.filter(s => s.status === 'Pending').length > 0 && (
+                        <div className="mb-6 pb-6 border-b border-gray-200">
+                          <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                            <Send size={16} className="text-orange-500" />
+                            Pending Payments
+                          </h4>
+                          <div className="space-y-3">
+                            {groupBalances.settlements
+                              .filter(s => s.status === 'Pending' && s.payerId._id === user?._id)
+                              .map(settlement => (
+                                <div key={settlement._id} className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                                  <div className="flex justify-between items-start mb-3">
+                                    <div>
+                                      <p className="text-sm font-bold text-gray-800">
+                                        Pay {settlement.payeeId.name || settlement.payeeId.email}
+                                      </p>
+                                      <p className="text-xs text-gray-600 mt-1">Outstanding amount</p>
+                                    </div>
+                                    <p className="text-lg font-bold text-orange-600">
+                                      {user?.primaryCurrency || 'USD'} {settlement.amount.toFixed(2)}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedSettlement(settlement);
+                                      setShowSettlePaymentModal(true);
+                                    }}
+                                    className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-semibold flex items-center justify-center gap-2"
+                                  >
+                                    <Send size={14} /> Pay Now
+                                  </button>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
                       <h4 className="font-semibold text-gray-800 mb-4">Outstanding Balances</h4>
                       <div className="space-y-3 mb-6">
                         {groupBalances.balances.map((item, idx) => {
-                          if (item.balance === 0) return null;
-                          const isOwed = item.balance > 0;
-                          // Get currency from the selected group's first member (usually the payer)
-                          const currency = selectedGroup.memberIDs?.[0]?.primaryCurrency || 'USD';
+                          const isYouOwe = item.direction === 'owes';
+                          const currency = item.debtor.primaryCurrency || user?.primaryCurrency || 'USD';
 
                           return (
                             <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                               <div className="text-left">
                                 <p className="text-sm font-bold text-gray-800">
-                                  {isOwed ? `${item.user.name || item.user.email} owes you` : `You owe ${item.user.name || item.user.email}`}
+                                  {isYouOwe 
+                                    ? `You owe ${item.creditor.name || item.creditor.email}` 
+                                    : `${item.debtor.name || item.debtor.email} owes you`
+                                  }
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className={`text-lg font-black ${isOwed ? 'text-green-600' : 'text-red-400'}`}>
-                                  {currency} {Math.abs(item.balance).toLocaleString()}
+                                <p className={`text-lg font-black ${isYouOwe ? 'text-red-400' : 'text-green-600'}`}>
+                                  {currency} {item.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                                 <button
                                   onClick={() => handleSettleBalance(
-                                    isOwed ? item.user._id : selectedGroup.memberIDs[0]._id,
-                                    isOwed ? selectedGroup.memberIDs[0]._id : item.user._id,
-                                    Math.abs(item.balance)
+                                    item.debtor._id,
+                                    item.creditor._id,
+                                    item.amount
                                   )}
                                   className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 ml-auto mt-1"
                                 >

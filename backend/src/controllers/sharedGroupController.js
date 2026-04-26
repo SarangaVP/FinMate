@@ -254,13 +254,14 @@ exports.settleBalance = async (req, res) => {
             return res.status(403).json({ message: 'You are not a member of this group' });
         }
 
-        // Create settlement
+        // Create settlement with new field names
+        // fromUserId is the payer (debtor), toUserId is the payee (creditor)
         const settlement = new Settlement({
-            groupID: groupId,
-            fromUser: fromUserId,
-            toUser: toUserId,
+            groupId: groupId,
+            payerId: fromUserId,
+            payeeId: toUserId,
             amount,
-            status: 'settled'
+            status: 'Completed'  // "Mark Settled" button completes the settlement
         });
 
         await settlement.save();
@@ -274,44 +275,77 @@ exports.settleBalance = async (req, res) => {
 // Get group balances (who owes whom)
 exports.getGroupBalances = async (req, res) => {
     try {
-        const { groupId } = req.params;
+        const { id: groupId } = req.params;
+        const userId = req.user.id;
 
         const group = await SharedGroup.findById(groupId)
-            .populate('memberIDs', 'name email');
+            .populate('memberIDs', 'name email primaryCurrency');
 
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
         }
 
         // Check if user is a member
-        if (!group.memberIDs.some(member => member._id.toString() === req.user.id)) {
+        if (!group.memberIDs.some(member => member._id.toString() === userId)) {
             return res.status(403).json({ message: 'You are not a member of this group' });
         }
 
-        // Get all settlements for this group
-        const settlements = await Settlement.find({ groupID: groupId })
-            .populate('fromUser toUser', 'name email');
+        // Get all pending settlements for this group
+        const settlements = await Settlement.find({ groupId: groupId, status: 'Pending' })
+            .populate('payerId', 'name email primaryCurrency')
+            .populate('payeeId', 'name email primaryCurrency');
 
-        // Calculate net balances for each member
-        const balances = {};
+        // Filter to only include settlements involving group members
+        const validSettlements = settlements.filter(s => 
+            group.memberIDs.some(m => m._id.toString() === s.payerId._id.toString()) &&
+            group.memberIDs.some(m => m._id.toString() === s.payeeId._id.toString())
+        );
+
+        // Calculate net balances between pairs of users
+        const balanceMap = {};
         group.memberIDs.forEach(member => {
-            balances[member._id] = { user: member, balance: 0 };
+            balanceMap[member._id] = {};
+            group.memberIDs.forEach(other => {
+                if (member._id.toString() !== other._id.toString()) {
+                    balanceMap[member._id][other._id] = 0;
+                }
+            });
         });
 
-        settlements.forEach(settlement => {
-            if (settlement.status !== 'settled') {
-                const fromId = settlement.fromUser._id.toString();
-                const toId = settlement.toUser._id.toString();
-
-                if (balances[fromId]) balances[fromId].balance -= settlement.amount;
-                if (balances[toId]) balances[toId].balance += settlement.amount;
+        // For each settlement, track who owes whom
+        validSettlements.forEach(settlement => {
+            const payerId = settlement.payerId._id.toString();
+            const payeeId = settlement.payeeId._id.toString();
+            
+            // payer owes payee
+            if (!balanceMap[payerId][payeeId]) {
+                balanceMap[payerId][payeeId] = 0;
             }
+            balanceMap[payerId][payeeId] += settlement.amount;
+        });
+
+        // Create balance list (only non-zero balances)
+        const balances = [];
+        Object.keys(balanceMap).forEach(debtorId => {
+            Object.keys(balanceMap[debtorId]).forEach(creditorId => {
+                if (balanceMap[debtorId][creditorId] > 0) {
+                    const debtor = group.memberIDs.find(m => m._id.toString() === debtorId);
+                    const creditor = group.memberIDs.find(m => m._id.toString() === creditorId);
+                    
+                    balances.push({
+                        debtor,
+                        creditor,
+                        amount: balanceMap[debtorId][creditorId],
+                        direction: debtorId === userId ? 'owes' : 'owed'
+                    });
+                }
+            });
         });
 
         res.status(200).json({
             group,
-            balances: Object.values(balances),
-            settlements
+            balances,
+            settlements: validSettlements
         });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching group balances', error: error.message });

@@ -7,7 +7,8 @@ const {
     getExpenseById,
     updateExpense,
     deleteExpense,
-    calculateGroupBalance
+    calculateGroupBalance,
+    paySettlement
 } = require('../controllers/sharedExpenseController');
 
 router.get('/group/:groupID', protect, getGroupExpenses);
@@ -16,5 +17,6 @@ router.get('/balance/:groupID', protect, calculateGroupBalance);
 router.post('/', protect, addExpense);
 router.put('/:id', protect, updateExpense);
 router.delete('/:id', protect, deleteExpense);
+router.post('/settlement/:settlementId/pay', protect, paySettlement);
 
 module.exports = router;

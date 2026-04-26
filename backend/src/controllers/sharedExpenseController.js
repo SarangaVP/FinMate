@@ -63,10 +63,10 @@ exports.addExpense = async (req, res) => {
     }
 };
 
-// Create settlement records from an expense
+// Create settlement records from an expense (without creating transactions yet)
 const createSettlements = async (expense) => {
     try {
-        // For each participant who is not the payer, create a settlement and transaction
+        // For each participant who is not the payer, create a settlement
         for (const participant of expense.participants) {
             const userId = participant.userID._id || participant.userID;
             
@@ -89,7 +89,7 @@ const createSettlements = async (expense) => {
                 existingSettlement.amount += participant.amount;
                 settlement = await existingSettlement.save();
             } else {
-                // Create new settlement
+                // Create new settlement - NO TRANSACTIONS YET
                 settlement = new Settlement({
                     groupId: expense.groupID,
                     payerId: userId,
@@ -99,23 +99,6 @@ const createSettlements = async (expense) => {
                 });
                 settlement = await settlement.save();
             }
-
-            // Create transaction for the participant (their share as an expense)
-            const participantTransaction = new Transaction({
-                userId: userId,
-                amount: participant.amount,
-                description: `Shared expense: ${expense.description}`,
-                category: expense.category || 'General',
-                type: 'expense',
-                date: expense.date,
-                groupId: expense.groupID
-            });
-
-            await participantTransaction.save();
-
-            // Link the transaction to the settlement
-            settlement.transactionId = participantTransaction._id;
-            await settlement.save();
         }
     } catch (error) {
         console.error('Error creating settlements:', error);
@@ -222,20 +205,21 @@ exports.updateExpense = async (req, res) => {
 
         // Delete old participant transactions and settlements
         const oldSettlements = await Settlement.find({ 
-            groupId: expense.groupID,
-            amount: { $exists: true }
+            groupId: expense.groupID
         });
 
         for (const settlement of oldSettlements) {
-            if (settlement.transactionId) {
-                await Transaction.findByIdAndDelete(settlement.transactionId);
+            if (settlement.expenseTransactionId) {
+                await Transaction.findByIdAndDelete(settlement.expenseTransactionId);
+            }
+            if (settlement.incomeTransactionId) {
+                await Transaction.findByIdAndDelete(settlement.incomeTransactionId);
             }
         }
 
         // Delete old settlements
         await Settlement.deleteMany({
-            groupId: expense.groupID,
-            amount: { $exists: true }
+            groupId: expense.groupID
         });
 
         // Recreate settlements and transactions with new amounts
@@ -357,5 +341,84 @@ exports.calculateGroupBalance = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: 'Error calculating balance', error: error.message });
+    }
+};
+
+// Pay a settlement (creates expense for payer and income for creditor)
+exports.paySettlement = async (req, res) => {
+    try {
+        const { settlementId } = req.params;
+        const { amount } = req.body;
+
+        const settlement = await Settlement.findById(settlementId)
+            .populate('payerId', 'name email')
+            .populate('payeeId', 'name email')
+            .populate('groupId');
+
+        if (!settlement) {
+            return res.status(404).json({ message: 'Settlement not found' });
+        }
+
+        // Check if user is the payer (who owes the money)
+        if (settlement.payerId._id.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Only the person who owes can pay this settlement' });
+        }
+
+        const payAmount = amount || settlement.amount;
+
+        if (payAmount <= 0 || payAmount > settlement.amount) {
+            return res.status(400).json({ message: 'Invalid payment amount' });
+        }
+
+        // Create expense transaction for the payer (who is paying back)
+        const expenseTransaction = new Transaction({
+            userId: settlement.payerId._id,
+            amount: payAmount,
+            description: `Settlement payment to ${settlement.payeeId.name}`,
+            category: 'Settlement',
+            type: 'expense',
+            date: new Date(),
+            groupId: settlement.groupId
+        });
+
+        await expenseTransaction.save();
+
+        // Create income transaction for the creditor (who receives money)
+        const incomeTransaction = new Transaction({
+            userId: settlement.payeeId._id,
+            amount: payAmount,
+            description: `Settlement received from ${settlement.payerId.name}`,
+            category: 'Settlement',
+            type: 'income',
+            date: new Date(),
+            groupId: settlement.groupId
+        });
+
+        await incomeTransaction.save();
+
+        // Update settlement
+        settlement.expenseTransactionId = expenseTransaction._id;
+        settlement.incomeTransactionId = incomeTransaction._id;
+        settlement.paidAt = new Date();
+
+        // If payment equals settlement amount, mark as completed
+        if (payAmount >= settlement.amount) {
+            settlement.status = 'Completed';
+            settlement.amount = payAmount;
+        } else {
+            // Partial payment - reduce settlement amount
+            settlement.amount -= payAmount;
+        }
+
+        await settlement.save();
+
+        res.status(200).json({
+            message: 'Settlement paid successfully',
+            settlement,
+            expenseTransaction,
+            incomeTransaction
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error paying settlement', error: error.message });
     }
 };
