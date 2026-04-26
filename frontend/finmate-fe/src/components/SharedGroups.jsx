@@ -368,7 +368,11 @@ const SharedGroups = () => {
             }}
             groupMembers={selectedGroup.memberIDs || []}
             loading={loading}
-            payerCurrency={selectedGroup.memberIDs?.[0]?.primaryCurrency || 'USD'}
+            payerCurrency={
+              editingExpenseId 
+                ? groupExpenses.find(e => e._id === editingExpenseId)?.paidBy?.primaryCurrency || 'USD'
+                : selectedGroup.memberIDs?.[0]?.primaryCurrency || 'USD'
+            }
             initialExpense={editingExpenseId ? groupExpenses.find(e => e._id === editingExpenseId) : null}
           />
         )}
