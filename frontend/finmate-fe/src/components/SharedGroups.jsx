@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, ArrowRightLeft, CheckCircle2, MoreVertical, X, Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge } from './ui';
 import { sharedGroupsApi, sharedExpensesApi } from '../api/sharedGroupsApi';
+import { useAuth } from '../context/AuthContext';
 import AddExpenseModal from './AddExpenseModal';
 
 const SharedGroups = () => {
+  const { user } = useAuth();
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -371,7 +373,7 @@ const SharedGroups = () => {
             payerCurrency={
               editingExpenseId 
                 ? groupExpenses.find(e => e._id === editingExpenseId)?.paidBy?.primaryCurrency || 'USD'
-                : selectedGroup.memberIDs?.[0]?.primaryCurrency || 'USD'
+                : user?.primaryCurrency || 'USD'
             }
             initialExpense={editingExpenseId ? groupExpenses.find(e => e._id === editingExpenseId) : null}
           />

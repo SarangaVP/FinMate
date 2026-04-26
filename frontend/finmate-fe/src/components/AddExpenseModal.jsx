@@ -62,7 +62,11 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
 
   const calculateSplitAmount = () => {
     const selected = getSelectedMembers();
-    return selected.length > 0 ? (parseFloat(formData.amount) || 0) / selected.length : 0;
+    const amt = parseFloat(formData.amount);
+    if (selected.length === 0 || !amt || isNaN(amt)) {
+      return 0;
+    }
+    return amt / selected.length;
   };
 
   const handleSubmit = (e) => {
@@ -258,7 +262,7 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
               {activeTab === 'equal' ? (
                 <div className="space-y-3">
                   <p className="text-sm text-gray-600">
-                    Total Amount: <span className="font-bold">{payerCurrency} {parseFloat(formData.amount).toFixed(2)}</span>
+                    Total Amount: <span className="font-bold">{payerCurrency} {(parseFloat(formData.amount) || 0).toFixed(2)}</span>
                   </p>
                   <p className="text-sm text-gray-600">
                     Per Person: <span className="font-bold">{payerCurrency} {calculateSplitAmount().toFixed(2)}</span>
@@ -277,7 +281,7 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm text-gray-600">
-                    Total: <span className="font-bold">{payerCurrency} {parseFloat(formData.amount).toFixed(2)}</span>
+                    Total: <span className="font-bold">{payerCurrency} {(parseFloat(formData.amount) || 0).toFixed(2)}</span>
                   </p>
                   <div className="space-y-2">
                     {getSelectedMembers().map(member => (
