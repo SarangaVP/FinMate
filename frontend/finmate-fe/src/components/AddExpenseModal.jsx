@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Equal, Users } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Card } from './ui';
 
 const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, payerCurrency = 'USD', initialExpense = null }) => {
-  const [activeTab, setActiveTab] = useState('equal'); // 'equal' or 'custom'
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
     category: 'General',
+    paidBy: '',
     selectedMembers: {}
   });
-  const [customAmounts, setCustomAmounts] = useState({});
 
   // Initialize form with existing expense data if editing
   useEffect(() => {
@@ -19,23 +18,20 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
         description: initialExpense.description,
         amount: initialExpense.amount.toString(),
         category: initialExpense.category,
+        paidBy: initialExpense.paidBy._id,
         selectedMembers: initialExpense.participants.reduce((acc, p) => {
           acc[p.userID._id] = true;
           return acc;
         }, {})
       });
-      
-      if (initialExpense.splitType === 'custom') {
-        setActiveTab('custom');
-        const amounts = {};
-        initialExpense.participants.forEach(p => {
-          amounts[p.userID._id] = p.amount;
-        });
-        setCustomAmounts(amounts);
-      } else {
-        setActiveTab('equal');
-        setCustomAmounts({});
-      }
+    } else {
+      setFormData({
+        description: '',
+        amount: '',
+        category: 'General',
+        paidBy: '',
+        selectedMembers: {}
+      });
     }
   }, [initialExpense, isOpen]);
 
@@ -46,13 +42,6 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
         ...prev.selectedMembers,
         [memberId]: !prev.selectedMembers[memberId]
       }
-    }));
-  };
-
-  const handleCustomAmountChange = (memberId, value) => {
-    setCustomAmounts(prev => ({
-      ...prev,
-      [memberId]: parseFloat(value) || 0
     }));
   };
 
@@ -72,9 +61,14 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    if (!formData.paidBy.trim()) {
+      alert('Please select who is paying');
+      return;
+    }
+
     const selectedMembers = getSelectedMembers();
     if (selectedMembers.length === 0) {
-      alert('Please select at least one member');
+      alert('Please select at least one member to split with');
       return;
     }
 
@@ -84,38 +78,20 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
     }
 
     const amount = parseFloat(formData.amount);
-    let participants = [];
-
-    if (activeTab === 'equal') {
-      const splitAmount = amount / selectedMembers.length;
-      participants = selectedMembers.map(member => ({
-        userID: member._id,
-        amount: splitAmount
-      }));
-    } else {
-      // Custom split - verify total matches
-      let total = 0;
-      participants = selectedMembers.map(member => {
-        const customAmount = customAmounts[member._id] || 0;
-        total += customAmount;
-        return {
-          userID: member._id,
-          amount: customAmount
-        };
-      });
-
-      if (Math.abs(total - amount) > 0.01) {
-        alert(`Custom amounts total (${total.toFixed(2)}) does not match expense amount (${amount.toFixed(2)})`);
-        return;
-      }
-    }
+    const splitAmount = amount / selectedMembers.length;
+    
+    const participants = selectedMembers.map(member => ({
+      userID: member._id,
+      amount: splitAmount
+    }));
 
     onSubmit({
       description: formData.description,
       amount: amount,
       category: formData.category,
-      splitType: activeTab,
-      participants: participants
+      splitType: 'equal',
+      participants: participants,
+      paidBy: formData.paidBy
     });
 
     // Reset form
@@ -123,10 +99,9 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
       description: '',
       amount: '',
       category: 'General',
+      paidBy: '',
       selectedMembers: {}
     });
-    setCustomAmounts({});
-    setActiveTab('equal');
   };
 
   if (!isOpen) return null;
@@ -202,38 +177,34 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
 
           {/* Split Type Selection */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-700">Split Type</h3>
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => setActiveTab('equal')}
-                className={`flex-1 px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors ${
-                  activeTab === 'equal'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Equal size={16} /> Equal Split
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('custom')}
-                className={`flex-1 px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors ${
-                  activeTab === 'custom'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Users size={16} /> Custom Split
-              </button>
+            <h3 className="font-semibold text-gray-700">Who is Paying? *</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto">
+              {groupMembers.map(member => (
+                <div
+                  key={member._id}
+                  onClick={() => setFormData({ ...formData, paidBy: member._id })}
+                  className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                    formData.paidBy === member._id
+                      ? 'border-green-600 bg-green-50'
+                      : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                  }`}
+                >
+                  <p className="font-semibold text-gray-800">{member.name || member.email}</p>
+                  <p className="text-xs text-gray-500">{member.email}</p>
+                  {formData.paidBy === member._id && (
+                    <p className="text-xs font-semibold text-green-600 mt-1">✓ Paying</p>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
           {/* Members Selection */}
           <div className="space-y-4">
             <h3 className="font-semibold text-gray-700">
-              Select Members {activeTab === 'equal' && `(${getSelectedMembers().length} selected)`}
+              Split Among Members * ({getSelectedMembers().length} selected)
             </h3>
+            <p className="text-xs text-gray-500">Select who should split this expense (can include the payer)</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto">
               {groupMembers.map(member => (
                 <div
@@ -247,72 +218,40 @@ const AddExpenseModal = ({ isOpen, onClose, onSubmit, groupMembers, loading, pay
                 >
                   <p className="font-semibold text-gray-800">{member.name || member.email}</p>
                   <p className="text-xs text-gray-500">{member.email}</p>
+                  {formData.paidBy === member._id && (
+                    <p className="text-xs font-semibold text-green-600 mt-1">Payer</p>
+                  )}
                 </div>
               ))}
             </div>
           </div>
 
           {/* Split Details */}
-          {getSelectedMembers().length > 0 && (
+          {getSelectedMembers().length > 0 && formData.paidBy && (
             <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-gray-700">
-                {activeTab === 'equal' ? 'Equal Split Details' : 'Custom Split Details'}
-              </h3>
+              <h3 className="font-semibold text-gray-700">Equal Split Preview</h3>
               
-              {activeTab === 'equal' ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-600">
-                    Total Amount: <span className="font-bold">{payerCurrency} {(parseFloat(formData.amount) || 0).toFixed(2)}</span>
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Per Person: <span className="font-bold">{payerCurrency} {calculateSplitAmount().toFixed(2)}</span>
-                  </p>
-                  <div className="space-y-2">
-                    {getSelectedMembers().map(member => (
-                      <div key={member._id} className="flex justify-between text-sm bg-white p-2 rounded">
-                        <span className="text-gray-700">{member.name || member.email}</span>
-                        <span className="font-semibold text-gray-800">
-                          {payerCurrency} {calculateSplitAmount().toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-600">
-                    Total: <span className="font-bold">{payerCurrency} {(parseFloat(formData.amount) || 0).toFixed(2)}</span>
-                  </p>
-                  <div className="space-y-2">
-                    {getSelectedMembers().map(member => (
-                      <div key={member._id} className="flex items-center gap-2">
-                        <span className="text-sm text-gray-700 min-w-37.5">
-                          {member.name || member.email}
-                        </span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={customAmounts[member._id] || ''}
-                          onChange={(e) => handleCustomAmountChange(member._id, e.target.value)}
-                          placeholder="0.00"
-                          className="flex-1 px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-700">{payerCurrency}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {Object.values(customAmounts).length > 0 && (
-                    <div className="pt-2 border-t border-gray-200">
-                      <p className="text-sm text-gray-600">
-                        Allocated: <span className="font-bold">
-                          {payerCurrency} {Object.values(customAmounts).reduce((a, b) => a + b, 0).toFixed(2)}
-                        </span>
-                      </p>
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">
+                  Total Amount: <span className="font-bold">{payerCurrency} {(parseFloat(formData.amount) || 0).toFixed(2)}</span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Per Person: <span className="font-bold">{payerCurrency} {calculateSplitAmount().toFixed(2)}</span>
+                </p>
+                <div className="space-y-2 pt-3 border-t border-gray-200">
+                  {getSelectedMembers().map(member => (
+                    <div key={member._id} className="flex justify-between text-sm bg-white p-2 rounded">
+                      <span className="text-gray-700">
+                        {member.name || member.email}
+                        {formData.paidBy === member._id && <span className="text-green-600 ml-2">(Payer)</span>}
+                      </span>
+                      <span className="font-semibold text-gray-800">
+                        {payerCurrency} {calculateSplitAmount().toFixed(2)}
+                      </span>
                     </div>
-                  )}
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
