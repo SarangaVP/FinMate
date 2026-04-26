@@ -254,19 +254,69 @@ exports.settleBalance = async (req, res) => {
             return res.status(403).json({ message: 'You are not a member of this group' });
         }
 
-        // Create settlement with new field names
-        // fromUserId is the payer (debtor), toUserId is the payee (creditor)
-        const settlement = new Settlement({
+        const Transaction = require('../models/Transaction');
+
+        // Find existing pending settlement
+        let settlement = await Settlement.findOne({
             groupId: groupId,
             payerId: fromUserId,
             payeeId: toUserId,
-            amount,
-            status: 'Completed'  // "Mark Settled" button completes the settlement
+            status: 'Pending'
         });
+
+        let expenseTransactionId, incomeTransactionId;
+
+        if (!settlement) {
+            // Create new settlement if it doesn't exist
+            settlement = new Settlement({
+                groupId: groupId,
+                payerId: fromUserId,
+                payeeId: toUserId,
+                amount,
+                status: 'Pending'
+            });
+        }
+
+        // Create expense transaction for the payer (debtor)
+        const expenseTransaction = new Transaction({
+            userId: fromUserId,
+            amount: amount,
+            description: `Settlement payment to ${(await User.findById(toUserId)).name || 'member'}`,
+            category: 'Settlement',
+            type: 'expense',
+            groupId: groupId
+        });
+
+        const savedExpenseTransaction = await expenseTransaction.save();
+        expenseTransactionId = savedExpenseTransaction._id;
+
+        // Create income transaction for the payee (creditor)
+        const incomeTransaction = new Transaction({
+            userId: toUserId,
+            amount: amount,
+            description: `Settlement received from ${(await User.findById(fromUserId)).name || 'member'}`,
+            category: 'Settlement',
+            type: 'income',
+            groupId: groupId
+        });
+
+        const savedIncomeTransaction = await incomeTransaction.save();
+        incomeTransactionId = savedIncomeTransaction._id;
+
+        // Update settlement to Completed with transaction IDs
+        settlement.expenseTransactionId = expenseTransactionId;
+        settlement.incomeTransactionId = incomeTransactionId;
+        settlement.status = 'Completed';
+        settlement.paidAt = new Date();
 
         await settlement.save();
 
-        res.status(201).json({ message: 'Balance settled successfully', settlement });
+        res.status(201).json({ 
+            message: 'Balance settled successfully', 
+            settlement,
+            expenseTransaction: savedExpenseTransaction,
+            incomeTransaction: savedIncomeTransaction
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error settling balance', error: error.message });
     }
