@@ -65,7 +65,7 @@ exports.getTransactions = async (req, res) => {
 exports.updateTransaction = async (req, res) => {
     try {
         const { id } = req.params;
-        const { amount, description, type, date } = req.body;
+        const { amount, description, type, category, date } = req.body;
 
         const transaction = await Transaction.findOne({ _id: id, userId: req.user._id });
         if (!transaction) {
@@ -77,6 +77,7 @@ exports.updateTransaction = async (req, res) => {
         if (amount !== undefined) transaction.amount = amount;
         if (description !== undefined) transaction.description = description;
         if (type !== undefined) transaction.type = type;
+        if (category !== undefined) transaction.category = category;
         if (date !== undefined) transaction.date = date;
 
         const updatedTransaction = await transaction.save();

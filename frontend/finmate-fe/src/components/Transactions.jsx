@@ -32,6 +32,7 @@ const Transactions = () => {
     description: '',
     amount: '',
     type: '',
+    category: '',
     date: ''
   });
 
@@ -107,6 +108,7 @@ const Transactions = () => {
       description: transaction.description,
       amount: transaction.amount,
       type: transaction.type,
+      category: transaction.category,
       date: transaction.date ? transaction.date.split('T')[0] : ''
     });
   };
@@ -114,7 +116,7 @@ const Transactions = () => {
   // Cancel editing
   const handleCancelEdit = () => {
     setEditingId(null);
-    setEditForm({ description: '', amount: '', type: '', date: '' });
+    setEditForm({ description: '', amount: '', type: '', category: '', date: '' });
   };
 
   // Save edited transaction
@@ -129,6 +131,7 @@ const Transactions = () => {
         description: editForm.description,
         amount: parseFloat(editForm.amount),
         type: editForm.type,
+        category: editForm.category,
         date: editForm.date
       });
       
@@ -465,9 +468,13 @@ const Transactions = () => {
                             />
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <Badge variant={editForm.type === 'income' ? 'success' : 'primary'}>
-                              {transaction.category}
-                            </Badge>
+                            <input
+                              type="text"
+                              value={editForm.category}
+                              onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                              placeholder="e.g., Food, Transport"
+                              className="border rounded px-2 py-1 text-sm w-full outline-none"
+                            />
                           </td>
                           <td className="px-6 py-4 text-center">
                             <input
@@ -588,6 +595,13 @@ const Transactions = () => {
                         value={editForm.description}
                         onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                         placeholder="Description"
+                        className="border rounded px-2 py-1.5 text-sm w-full outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={editForm.category}
+                        onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                        placeholder="Category (e.g., Food, Transport)"
                         className="border rounded px-2 py-1.5 text-sm w-full outline-none"
                       />
                       <input
