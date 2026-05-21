@@ -140,6 +140,8 @@ const SharedGroups = () => {
       setShowSettlePaymentModal(false);
       setSelectedSettlement(null);
       fetchGroupBalances(selectedGroup._id);
+      // Trigger dashboard update
+      window.dispatchEvent(new Event('transactions:updated'));
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to pay settlement', 'error');
     } finally {
@@ -176,6 +178,8 @@ const SharedGroups = () => {
       fetchGroups();
       fetchGroupExpenses(selectedGroup._id);
       fetchGroupBalances(selectedGroup._id);
+      // Trigger dashboard update
+      window.dispatchEvent(new Event('transactions:updated'));
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to add expense', 'error');
     } finally {
@@ -196,6 +200,8 @@ const SharedGroups = () => {
       fetchGroupExpenses(selectedGroup._id);
       fetchGroupBalances(selectedGroup._id);
       setExpandedExpense(null);
+      // Trigger dashboard update
+      window.dispatchEvent(new Event('transactions:updated'));
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to delete expense', 'error');
     } finally {
@@ -212,6 +218,8 @@ const SharedGroups = () => {
       fetchGroups();
       fetchGroupExpenses(selectedGroup._id);
       fetchGroupBalances(selectedGroup._id);
+      // Trigger dashboard update
+      window.dispatchEvent(new Event('transactions:updated'));
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update expense', 'error');
     } finally {

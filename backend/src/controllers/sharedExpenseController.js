@@ -6,9 +6,9 @@ const Transaction = require('../models/Transaction');
 
 exports.addExpense = async (req, res) => {
     try {
-        const { groupID, description, amount, splitType, participants, category } = req.body;
+        const { groupID, description, amount, splitType, participants, category, paidBy } = req.body;
 
-        if (!groupID || !description || !amount || !participants) {
+        if (!groupID || !description || !amount || !participants || !paidBy) {
             return res.status(400).json({ message: 'Missing required fields' });
         }
 
@@ -24,14 +24,14 @@ exports.addExpense = async (req, res) => {
         // Filter out the payer from participants to avoid duplicate transactions
         const filteredParticipants = participants.filter(p => {
             const participantId = p.userID || p;
-            return participantId.toString() !== req.user.id.toString();
+            return participantId.toString() !== paidBy.toString();
         });
 
         const expense = new SharedExpense({
             groupID,
             description,
             amount,
-            paidBy: req.user.id,
+            paidBy: paidBy,
             splitType: splitType || 'equal',
             participants: filteredParticipants,
             category: category || 'General',
@@ -44,9 +44,9 @@ exports.addExpense = async (req, res) => {
 
         await createSettlements(expense);
 
-        // Create a transaction for the payer (who paid the full amount)
+        // Create a transaction ONLY for the actual payer (who paid the full amount)
         const transaction = new Transaction({
-            userId: req.user.id,
+            userId: paidBy,
             amount: amount,
             description: `Shared expense: ${description}`,
             category: category || 'General',
