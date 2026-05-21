@@ -5,6 +5,42 @@ const mongoose = require('mongoose');
 
 const escapeRegExp = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const getDateRangeForTimeFrame = (timeFrame, date = new Date()) => {
+    const currentDate = new Date(date);
+    let startDate, endDate;
+
+    if (timeFrame === 'Weekly') {
+        // Get start of current week (Monday)
+        const day = currentDate.getDay();
+        const diff = currentDate.getDate() - day + (day === 0 ? -6 : 1);
+        startDate = new Date(currentDate.setDate(diff));
+        startDate.setHours(0, 0, 0, 0);
+        
+        // End of week (Sunday)
+        endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 6);
+        endDate.setHours(23, 59, 59, 999);
+    } else if (timeFrame === 'Monthly') {
+        // Start of current month
+        startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        startDate.setHours(0, 0, 0, 0);
+        
+        // End of current month
+        endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+    } else if (timeFrame === 'Yearly') {
+        // Start of current year
+        startDate = new Date(currentDate.getFullYear(), 0, 1);
+        startDate.setHours(0, 0, 0, 0);
+        
+        // End of current year
+        endDate = new Date(currentDate.getFullYear(), 11, 31);
+        endDate.setHours(23, 59, 59, 999);
+    }
+
+    return { startDate, endDate };
+};
+
 const adjustBudgetsForTransaction = async (userId, transaction, direction = 1) => {
     if (!transaction || transaction.type !== 'expense' || !transaction.category) {
         return;
@@ -21,7 +57,19 @@ const adjustBudgetsForTransaction = async (userId, transaction, direction = 1) =
     });
 
     for (const budget of budgets) {
-        budget.currentSpending = Math.max(0, Number(budget.currentSpending || 0) + amount);
+        // Calculate spending only for the current time period
+        const { startDate, endDate } = getDateRangeForTimeFrame(budget.timeFrame, transaction.date);
+
+        const transactionsInPeriod = await Transaction.find({
+            userId,
+            category: new RegExp(`^${escapeRegExp(transaction.category)}$`, 'i'),
+            type: 'expense',
+            date: { $gte: startDate, $lte: endDate }
+        });
+
+        const totalSpending = transactionsInPeriod.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+
+        budget.currentSpending = Math.max(0, totalSpending);
         await budget.save();
     }
 };
