@@ -38,6 +38,7 @@ const SharedGroups = () => {
   // Fetch group balances when selected group changes
   useEffect(() => {
     if (selectedGroup) {
+      setExpandedExpense(null); // Clear expanded expense when switching groups
       fetchGroupBalances(selectedGroup._id);
       fetchGroupExpenses(selectedGroup._id);
     }
@@ -449,7 +450,12 @@ const SharedGroups = () => {
                       <div className="bg-blue-50 p-3 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                         <Users size={20} />
                       </div>
-                      <button className="text-gray-400"><MoreVertical size={16} /></button>
+                      <button 
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-gray-400"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
                     </div>
                     <h4 className="font-bold text-gray-800 mb-1 text-left">{group.groupName}</h4>
                     <p className="text-xs text-gray-500 mb-4 text-left">{memberCount} Members</p>
@@ -502,7 +508,7 @@ const SharedGroups = () => {
                               </div>
                               <div className="text-right flex items-start gap-2">
                                 <span className="font-bold text-gray-800">{expense.paidBy?.primaryCurrency} {expense.amount.toFixed(2)}</span>
-                                {expense.createdBy?._id === expense.paidBy?._id && (
+                                {(expense.createdBy?._id === user?._id || expense.createdBy?._id === user?.id) && (
                                   <button
                                     onClick={() => setExpandedExpense(expandedExpense === expense._id ? null : expense._id)}
                                     className="text-gray-400 hover:text-gray-600 p-1"
@@ -620,7 +626,7 @@ const SharedGroups = () => {
                       </div>
                     </>
                   ) : (
-                    <div className="text-center text-gray-500 text-sm py-4">
+                    <div className="text-center text-gray-500 text-sm py-4 mb-6">
                       <p>No pending balances. All settled!</p>
                     </div>
                   )}
