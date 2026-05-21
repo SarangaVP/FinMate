@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Sparkles, ArrowDownRight, ArrowUpRight, Pencil, Trash2, X, Check, CheckCircle, AlertCircle, Wallet } from 'lucide-react';
 import { Card, Button, Input, Badge } from './ui';
 import API from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const Transactions = () => {
+  const currency = useCurrency();
   const [description, setDescription] = useState('');
   const [aiCategory, setAiCategory] = useState('Pending...');
   const [amount, setAmount] = useState('');
@@ -428,7 +430,7 @@ const Transactions = () => {
                   <th className="px-6 py-4">Description</th>
                   <th className="px-6 py-4 text-center">AI Category</th>
                   <th className="px-6 py-4 text-center">Date</th>
-                  <th className="px-6 py-4 text-right">Amount (LKR)</th>
+                  <th className="px-6 py-4 text-right">Amount ({currency})</th>
                   <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
               </thead>

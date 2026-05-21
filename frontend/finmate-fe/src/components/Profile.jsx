@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { User, Globe, Camera, KeyRound, AlertCircle, Trash2 } from 'lucide-react';
 import { Card, CardHeader, Button, Input } from './ui';
+import { useAuth } from '../context/AuthContext';
 
 const Profile = () => {
+  const { updateUser } = useAuth();
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
@@ -84,6 +86,8 @@ const Profile = () => {
       });
       if (response.ok) {
         setMessage({ type: 'success', text: 'Profile updated successfully!' });
+        // Update the user in AuthContext
+        updateUser({ currency: profileData.currency });
       } else {
         const error = await response.json();
         setMessage({ type: 'error', text: error.message || 'Failed to update profile' });
@@ -175,9 +179,9 @@ const Profile = () => {
               </div>
               <h2 className="text-lg font-bold text-gray-800">{profileData.firstName} {profileData.lastName}</h2>
               <p className="text-xs text-gray-400 mb-4 font-medium uppercase">Standard Account</p>
-              <p className="text-[11px] text-gray-500 leading-relaxed px-4">
+              {/* <p className="text-[11px] text-gray-500 leading-relaxed px-4">
                 Managing personal and shared finances since Dec 2025.
-              </p>
+              </p> */}
             </Card>
 
             {/* Danger Zone - Fulfills Profile Control Requirement */}

@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Target, PieChart, AlertTriangle, Pencil, Check, X, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, ProgressBar, Input } from './ui';
 import { budgetGoalsApi } from '../api/budgetGoalsApi';
+import { useCurrency } from '../hooks/useCurrency';
 
 const BudgetsGoals = () => {
+  const currency = useCurrency();
   const [budgets, setBudgets] = useState([]);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -254,7 +256,7 @@ const BudgetsGoals = () => {
     try {
       await budgetGoalsApi.contributeToGoal(goal._id, amount);
       setGoalContributionAmounts((prev) => ({ ...prev, [goal._id]: '' }));
-      showToast(`LKR ${formatCurrency(amount)} added to ${goal.goalName} and logged as a transaction`);
+      showToast(`${currency} ${formatCurrency(amount)} added to ${goal.goalName} and logged as a transaction`);
       fetchData();
     } catch (contributionError) {
       showToast(contributionError?.response?.data?.error || 'Failed to contribute to goal', 'error');
@@ -458,7 +460,7 @@ const BudgetsGoals = () => {
                             <div className="text-left">
                               <p className="text-sm font-bold text-gray-700">{budget.category}</p>
                               <p className="text-xs text-gray-400">
-                                LKR {formatCurrency(budget.currentSpending)} of {formatCurrency(budget.spendingLimit)} • {budget.timeFrame}
+                                {currency} {formatCurrency(budget.currentSpending)} of {formatCurrency(budget.spendingLimit)} • {budget.timeFrame}
                               </p>
                             </div>
                             <div className="flex items-center gap-3">
@@ -569,7 +571,7 @@ const BudgetsGoals = () => {
                               </div>
                             </div>
                             <div className="mt-3 flex justify-between items-center">
-                              <p className="text-xs font-medium text-indigo-700">LKR {formatCurrency(goal.currentSavedAmount)}</p>
+                              <p className="text-xs font-medium text-indigo-700">{currency} {formatCurrency(goal.currentSavedAmount)}</p>
                               <p className="text-xs font-medium text-gray-400">Goal: {formatCurrency(goal.targetValue)}</p>
                             </div>
                             <div className="mt-3 flex gap-2">

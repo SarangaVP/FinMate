@@ -3,9 +3,11 @@ import { Wallet, BrainCircuit, ArrowUpCircle, ArrowDownCircle, PieChart, Loader2
 import { Card, CardHeader } from './ui';
 import API from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency } from '../hooks/useCurrency';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const currency = useCurrency();
   const [summary, setSummary] = useState({
     totalIncome: 0,
     totalExpense: 0,
@@ -133,7 +135,7 @@ const Dashboard = () => {
             </div>
           ) : (
             <h2 className={`text-3xl font-bold text-left ${summary.balance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-              LKR {formatAmount(summary.balance)}
+              {currency} {formatAmount(summary.balance)}
             </h2>
           )}
         </Card>
@@ -156,7 +158,7 @@ const Dashboard = () => {
                   Top spending category: <span className="font-bold text-white">{insights.topCategory || 'N/A'}</span>
                 </p>
                 <p className="text-sm text-purple-100">
-                  Spent: <span className="font-bold text-yellow-300">LKR {formatAmount(insights.topCategorySpend)}</span>
+                  Spent: <span className="font-bold text-yellow-300">{currency} {formatAmount(insights.topCategorySpend)}</span>
                 </p>
                 <p className="text-sm text-purple-100">
                   Most expensive day: <span className="font-bold text-white">{insights.mostExpensiveDay || 'N/A'}</span>
@@ -185,7 +187,7 @@ const Dashboard = () => {
               {isLoading ? (
                 <Loader2 size={16} className="animate-spin text-gray-400" />
               ) : (
-                <span className="font-bold text-green-600">LKR {formatAmount(summary.totalIncome)}</span>
+                <span className="font-bold text-green-600">{currency} {formatAmount(summary.totalIncome)}</span>
               )}
             </div>
             <div className="flex items-center justify-between">
@@ -199,7 +201,7 @@ const Dashboard = () => {
               {isLoading ? (
                 <Loader2 size={16} className="animate-spin text-gray-400" />
               ) : (
-                <span className="font-bold text-red-600">LKR {formatAmount(summary.totalExpense)}</span>
+                <span className="font-bold text-red-600">{currency} {formatAmount(summary.totalExpense)}</span>
               )}
             </div>
           </div>
@@ -231,7 +233,7 @@ const Dashboard = () => {
                   </p>
                   {alert.level === 'critical' ? (
                     <p className="text-xs text-red-600">
-                      You are LKR {formatAmount(alert.overAmount)} over your budget ({Math.round(alert.usagePercent)}% used).
+                      You are {currency} {formatAmount(alert.overAmount)} over your budget ({Math.round(alert.usagePercent)}% used).
                     </p>
                   ) : (
                     <p className="text-xs text-yellow-600">

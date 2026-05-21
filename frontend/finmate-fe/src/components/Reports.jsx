@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Download, TrendingDown, TrendingUp, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardHeader, Button } from './ui';
 import API from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const Reports = () => {
+  const currency = useCurrency();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [analytics, setAnalytics] = useState({
@@ -148,16 +150,16 @@ const Reports = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card className="p-5">
             <p className="text-xs uppercase text-gray-400 font-bold mb-1">Income</p>
-            <p className="text-xl font-bold text-green-600">LKR {formatAmount(analytics.summary.totalIncome)}</p>
+            <p className="text-xl font-bold text-green-600">{currency} {formatAmount(analytics.summary.totalIncome)}</p>
           </Card>
           <Card className="p-5">
             <p className="text-xs uppercase text-gray-400 font-bold mb-1">Expense</p>
-            <p className="text-xl font-bold text-red-600">LKR {formatAmount(analytics.summary.totalExpense)}</p>
+            <p className="text-xl font-bold text-red-600">{currency} {formatAmount(analytics.summary.totalExpense)}</p>
           </Card>
           <Card className="p-5">
             <p className="text-xs uppercase text-gray-400 font-bold mb-1">Balance</p>
             <p className={`text-xl font-bold ${analytics.summary.balance >= 0 ? 'text-gray-800' : 'text-red-600'}`}>
-              LKR {formatAmount(analytics.summary.balance)}
+              {currency} {formatAmount(analytics.summary.balance)}
             </p>
           </Card>
           <Card className="p-5">
@@ -183,7 +185,7 @@ const Reports = () => {
                   <li className="flex items-center gap-2">
                     <TrendingDown className="text-rose-500" size={16} />
                     Top spending category: <span className="font-bold">{analytics.insights.topCategory}</span>
-                    <span className="text-gray-500">(LKR {formatAmount(analytics.insights.topCategorySpend)})</span>
+                    <span className="text-gray-500">({currency} {formatAmount(analytics.insights.topCategorySpend)})</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <BarChart3 className="text-indigo-500" size={16} />
@@ -191,7 +193,7 @@ const Reports = () => {
                   </li>
                   <li className="flex items-center gap-2">
                     <TrendingUp className="text-green-500" size={16} />
-                    Net position: <span className="font-bold">LKR {formatAmount(analytics.summary.balance)}</span>
+                    Net position: <span className="font-bold">{currency} {formatAmount(analytics.summary.balance)}</span>
                   </li>
                 </ul>
               </Card>
@@ -238,7 +240,7 @@ const Reports = () => {
                       <div key={category.category}>
                         <div className="flex justify-between text-xs mb-1">
                           <span className="font-medium text-gray-700">{category.category}</span>
-                          <span className="text-gray-500">LKR {formatAmount(category.total)}</span>
+                          <span className="text-gray-500">{currency} {formatAmount(category.total)}</span>
                         </div>
                         <div className="h-2 bg-gray-100 rounded">
                           <div

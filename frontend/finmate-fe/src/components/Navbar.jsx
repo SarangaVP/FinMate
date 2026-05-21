@@ -14,9 +14,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const currency = useCurrency();
   const [balance, setBalance] = useState(0);
   const [recurringDueCount, setRecurringDueCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -166,7 +168,7 @@ const Navbar = () => {
             </div>
           ) : (
             <p className={`text-sm font-bold ${balance >= 0 ? 'text-gray-800' : 'text-red-600'}`}>
-              {user?.currency || 'LKR'} {formatAmount(balance)}
+              {currency} {formatAmount(balance)}
             </p>
           )}
         </div>

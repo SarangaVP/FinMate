@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCw, AlertCircle, X, Pencil, Trash2, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, Badge } from './ui';
 import API from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const Recurring = () => {
+  const currency = useCurrency();
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -316,7 +318,7 @@ const Recurring = () => {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <p className="font-bold text-gray-800 font-mono">LKR {sub.amount.toLocaleString()}</p>
+                          <p className="font-bold text-gray-800 font-mono">{currency} {sub.amount.toLocaleString()}</p>
                           <Badge variant={getStatusVariant(sub.nextDueDate)} size="xs">
                             {getStatusText(sub.nextDueDate)}
                           </Badge>
@@ -358,7 +360,7 @@ const Recurring = () => {
                 <div className="w-full bg-gray-50 rounded-xl p-4 border border-gray-100">
                   <p className="text-[10px] font-bold text-gray-400 uppercase mb-2 text-left">Total Recurring Amount</p>
                   <span className="text-xl font-bold text-gray-800 font-mono">
-                    LKR {totalRecurring.toLocaleString()}
+                    {currency} {totalRecurring.toLocaleString()}
                   </span>
                 </div>
 
@@ -416,7 +418,7 @@ const Recurring = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Amount (LKR)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Amount ({currency})</label>
                 <input
                   type="number"
                   name="amount"
