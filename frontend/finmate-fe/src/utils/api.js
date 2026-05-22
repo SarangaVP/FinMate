@@ -28,7 +28,20 @@ API.interceptors.response.use(
 
         return response;
     },
-    (error) => Promise.reject(error)
+    (error) => {
+        // Handle expired token (401 Unauthorized)
+        if (error.response?.status === 401) {
+            // Clear auth data
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page
+            if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+                window.location.href = '/';
+            }
+        }
+        return Promise.reject(error);
+    }
 );
 
 export default API;

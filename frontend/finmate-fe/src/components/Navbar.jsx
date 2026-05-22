@@ -10,31 +10,33 @@ import {
   UserCircle, 
   LogOut, 
   Wallet,
-  Search,
   Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import API from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const currency = useCurrency();
   const [balance, setBalance] = useState(0);
+  const [recurringDueCount, setRecurringDueCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchBalance();
+    fetchSidebarData();
 
     const handleTransactionsUpdated = () => {
-      fetchBalance();
+      fetchSidebarData();
     };
 
     const handleFocus = () => {
-      fetchBalance();
+      fetchSidebarData();
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchBalance();
+        fetchSidebarData();
       }
     };
 
@@ -49,12 +51,31 @@ const Navbar = () => {
     };
   }, []);
 
-  const fetchBalance = async () => {
+  const getDueCount = (payments = []) => {
+    const now = new Date();
+    return payments.filter((payment) => {
+      const dueDate = new Date(payment.nextDueDate);
+      const daysUntilDue = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+      return daysUntilDue <= 3;
+    }).length;
+  };
+
+  const fetchSidebarData = async () => {
     try {
-      const response = await API.get('/transactions/summary');
-      setBalance(response.data.balance);
+      const [balanceResult, recurringResult] = await Promise.allSettled([
+        API.get('/transactions/summary'),
+        API.get('/recurring')
+      ]);
+
+      if (balanceResult.status === 'fulfilled') {
+        setBalance(balanceResult.value.data.balance || 0);
+      }
+
+      if (recurringResult.status === 'fulfilled') {
+        setRecurringDueCount(getDueCount(recurringResult.value.data?.data || []));
+      }
     } catch (error) {
-      console.error('Failed to fetch balance', error);
+      console.error('Failed to fetch navbar data', error);
     } finally {
       setIsLoading(false);
     }
@@ -74,11 +95,11 @@ const Navbar = () => {
       name: 'Recurring', 
       path: '/recurring', 
       icon: <CalendarClock size={20} />, 
-      alert: '3 Due'
+      alert: recurringDueCount > 0 ? `${recurringDueCount} Due` : null
     },
-    { name: 'Budgets & Goals', path: '/budgets-goals', icon: <Target size={20} /> },
+    { name: 'Budgets and Goals', path: '/budgets-goals', icon: <Target size={20} /> },
     { name: 'Shared Groups', path: '/shared', icon: <Users size={20} /> },
-    { name: 'Reports & AI', path: '/reports', icon: <BarChart3 size={20} /> },
+    { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> },
     { name: 'Profile', path: '/profile', icon: <UserCircle size={20} /> },
   ];
 
@@ -104,15 +125,6 @@ const Navbar = () => {
             <Wallet size={24} />
           </div>
           <span className="text-xl font-bold text-gray-800 tracking-tight italic">FinMate</span>
-        </div>
-
-        <div className="relative group">
-          <Search className="absolute left-3 top-2.5 text-gray-400 group-focus-within:text-blue-500" size={16} />
-          <input 
-            type="text" 
-            placeholder="Search logs..." 
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-100 transition-all"
-          />
         </div>
       </div>
 
@@ -156,7 +168,7 @@ const Navbar = () => {
             </div>
           ) : (
             <p className={`text-sm font-bold ${balance >= 0 ? 'text-gray-800' : 'text-red-600'}`}>
-              {user?.currency || 'LKR'} {formatAmount(balance)}
+              {currency} {formatAmount(balance)}
             </p>
           )}
         </div>

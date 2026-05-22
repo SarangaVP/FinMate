@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Sparkles, ArrowDownRight, ArrowUpRight, Pencil, Trash2, X, Check, CheckCircle, AlertCircle, Wallet } from 'lucide-react';
 import { Card, Button, Input, Badge } from './ui';
 import API from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const Transactions = () => {
+  const currency = useCurrency();
   const [description, setDescription] = useState('');
   const [aiCategory, setAiCategory] = useState('Pending...');
   const [amount, setAmount] = useState('');
@@ -12,6 +14,11 @@ const Transactions = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterType, setFilterType] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterFromDate, setFilterFromDate] = useState('');
+  const [filterToDate, setFilterToDate] = useState('');
   
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -25,6 +32,7 @@ const Transactions = () => {
     description: '',
     amount: '',
     type: '',
+    category: '',
     date: ''
   });
 
@@ -100,6 +108,7 @@ const Transactions = () => {
       description: transaction.description,
       amount: transaction.amount,
       type: transaction.type,
+      category: transaction.category,
       date: transaction.date ? transaction.date.split('T')[0] : ''
     });
   };
@@ -107,7 +116,7 @@ const Transactions = () => {
   // Cancel editing
   const handleCancelEdit = () => {
     setEditingId(null);
-    setEditForm({ description: '', amount: '', type: '', date: '' });
+    setEditForm({ description: '', amount: '', type: '', category: '', date: '' });
   };
 
   // Save edited transaction
@@ -122,6 +131,7 @@ const Transactions = () => {
         description: editForm.description,
         amount: parseFloat(editForm.amount),
         type: editForm.type,
+        category: editForm.category,
         date: editForm.date
       });
       
@@ -156,11 +166,49 @@ const Transactions = () => {
     setDeleteConfirm({ show: false, id: null });
   };
 
-  // Filter transactions based on search
-  const filteredTransactions = transactions.filter(t =>
-    t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleClearFilters = () => {
+    setFilterType('all');
+    setFilterCategory('all');
+    setFilterFromDate('');
+    setFilterToDate('');
+  };
+
+  const handleShowAllTransactions = () => {
+    setSearchTerm('');
+    handleClearFilters();
+    setShowFilters(false);
+  };
+
+  const categories = Array.from(
+    new Set(transactions.map((transaction) => transaction.category).filter(Boolean))
+  ).sort((first, second) => first.localeCompare(second));
+
+  const hasActiveFilters =
+    filterType !== 'all' || filterCategory !== 'all' || Boolean(filterFromDate) || Boolean(filterToDate);
+  const hasActiveSearch = Boolean(searchTerm.trim());
+  const hasActiveQuery = hasActiveFilters || hasActiveSearch;
+
+  // Filter transactions based on search and filter controls
+  const filteredTransactions = transactions.filter((transaction) => {
+    const searchValue = searchTerm.trim().toLowerCase();
+    const description = String(transaction.description || '').toLowerCase();
+    const category = String(transaction.category || '').toLowerCase();
+
+    const matchesSearch =
+      !searchValue || description.includes(searchValue) || category.includes(searchValue);
+
+    const matchesType = filterType === 'all' || transaction.type === filterType;
+    const matchesCategory = filterCategory === 'all' || transaction.category === filterCategory;
+
+    const transactionDate = transaction.date
+      ? new Date(transaction.date).toISOString().split('T')[0]
+      : '';
+
+    const matchesFromDate = !filterFromDate || (transactionDate && transactionDate >= filterFromDate);
+    const matchesToDate = !filterToDate || (transactionDate && transactionDate <= filterToDate);
+
+    return matchesSearch && matchesType && matchesCategory && matchesFromDate && matchesToDate;
+  });
 
   const formatAmount = (amount) => {
     return new Intl.NumberFormat('en-LK', {
@@ -229,9 +277,78 @@ const Transactions = () => {
             <p className="text-gray-500 text-sm">Record your expenses and let AI do the sorting.</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="secondary" icon={Filter}>Filter</Button>
+            <Button
+              variant={showFilters || hasActiveFilters ? 'primary' : 'secondary'}
+              icon={Filter}
+              onClick={() => setShowFilters((previous) => !previous)}
+            >
+              Filter
+            </Button>
+            {hasActiveQuery && (
+              <Button variant="secondary" onClick={handleShowAllTransactions}>
+                Show All
+              </Button>
+            )}
           </div>
         </div>
+
+        {showFilters && (
+          <Card className="p-4 mb-6 border-blue-100 bg-blue-50/40">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Type</label>
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
+                >
+                  <option value="all">All</option>
+                  <option value="income">Income</option>
+                  <option value="expense">Expense</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
+                >
+                  <option value="all">All</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Input
+                label="From Date"
+                type="date"
+                value={filterFromDate}
+                onChange={(e) => setFilterFromDate(e.target.value)}
+              />
+
+              <Input
+                label="To Date"
+                type="date"
+                value={filterToDate}
+                onChange={(e) => setFilterToDate(e.target.value)}
+              />
+            </div>
+
+            <div className="mt-4 flex gap-2 justify-end">
+              <Button size="sm" variant="secondary" onClick={handleClearFilters}>
+                Clear
+              </Button>
+              <Button size="sm" onClick={() => setShowFilters(false)}>
+                Apply
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Smart Entry Form */}
         <Card className="p-4 md:p-6 mb-6 md:mb-8 border-blue-50">
@@ -288,15 +405,22 @@ const Transactions = () => {
         <Card className="overflow-hidden">
           <div className="p-4 border-b border-gray-50 bg-gray-50/30 flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
             <span className="font-bold text-gray-700">Recent Logs</span>
-            <div className="relative">
-              <Search className="absolute left-3 top-2 text-gray-400" size={14} />
-              <input 
-                type="text" 
-                placeholder="Search..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-white border rounded-lg pl-8 pr-4 py-1.5 text-xs outline-none w-full sm:w-auto" 
-              />
+            <div className="flex items-center gap-2">
+              {hasActiveQuery && (
+                <span className="text-[10px] font-bold uppercase tracking-wide text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                  Filtered View
+                </span>
+              )}
+              <div className="relative">
+                <Search className="absolute left-3 top-2 text-gray-400" size={14} />
+                <input 
+                  type="text" 
+                  placeholder="Search..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="bg-white border rounded-lg pl-8 pr-4 py-1.5 text-xs outline-none w-full sm:w-auto" 
+                />
+              </div>
             </div>
           </div>
 
@@ -309,7 +433,7 @@ const Transactions = () => {
                   <th className="px-6 py-4">Description</th>
                   <th className="px-6 py-4 text-center">AI Category</th>
                   <th className="px-6 py-4 text-center">Date</th>
-                  <th className="px-6 py-4 text-right">Amount (LKR)</th>
+                  <th className="px-6 py-4 text-right">Amount ({currency})</th>
                   <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
               </thead>
@@ -344,9 +468,13 @@ const Transactions = () => {
                             />
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <Badge variant={editForm.type === 'income' ? 'success' : 'primary'}>
-                              {transaction.category}
-                            </Badge>
+                            <input
+                              type="text"
+                              value={editForm.category}
+                              onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                              placeholder="e.g., Food, Transport"
+                              className="border rounded px-2 py-1 text-sm w-full outline-none"
+                            />
                           </td>
                           <td className="px-6 py-4 text-center">
                             <input
@@ -467,6 +595,13 @@ const Transactions = () => {
                         value={editForm.description}
                         onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                         placeholder="Description"
+                        className="border rounded px-2 py-1.5 text-sm w-full outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={editForm.category}
+                        onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                        placeholder="Category (e.g., Food, Transport)"
                         className="border rounded px-2 py-1.5 text-sm w-full outline-none"
                       />
                       <input

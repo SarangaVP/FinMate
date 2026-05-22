@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Card = ({ children, className = '', variant = 'default' }) => {
+export const Card = ({ children, className = '', variant = 'default', onClick }) => {
   const variants = {
     default: 'bg-white border border-gray-100 shadow-sm',
     dark: 'bg-gray-900 text-white shadow-xl',
@@ -8,7 +8,10 @@ export const Card = ({ children, className = '', variant = 'default' }) => {
   };
 
   return (
-    <div className={`rounded-2xl ${variants[variant]} ${className}`}>
+    <div 
+      className={`rounded-2xl ${variants[variant]} ${className}`}
+      onClick={onClick}
+    >
       {children}
     </div>
   );

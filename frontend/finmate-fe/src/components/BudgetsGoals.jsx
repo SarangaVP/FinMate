@@ -1,17 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { Target, PieChart, AlertTriangle, Plus, Pencil, Check, X, Trash2 } from 'lucide-react';
+import { Target, PieChart, AlertTriangle, Pencil, Check, X, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, Button, ProgressBar, Input } from './ui';
 import { budgetGoalsApi } from '../api/budgetGoalsApi';
+import { useCurrency } from '../hooks/useCurrency';
 
 const BudgetsGoals = () => {
+  const currency = useCurrency();
   const [budgets, setBudgets] = useState([]);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState({ show: false, type: null, id: null, label: '' });
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const [budgetForm, setBudgetForm] = useState({
+    category: '',
+    spendingLimit: '',
+    timeFrame: 'Monthly'
+  });
+
+  const [editingBudgetId, setEditingBudgetId] = useState(null);
+  const [editBudgetForm, setEditBudgetForm] = useState({
     category: '',
     spendingLimit: '',
     timeFrame: 'Monthly'
@@ -34,6 +43,11 @@ const BudgetsGoals = () => {
 
   const [goalContributionAmounts, setGoalContributionAmounts] = useState({});
 
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
   const formatCurrency = (value) =>
     new Intl.NumberFormat('en-LK', {
       minimumFractionDigits: 0,
@@ -42,7 +56,6 @@ const BudgetsGoals = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    setError('');
     try {
       const [budgetsResponse, goalsResponse] = await Promise.all([
         budgetGoalsApi.getBudgets(),
@@ -51,7 +64,7 @@ const BudgetsGoals = () => {
       setBudgets(budgetsResponse.data || []);
       setGoals(goalsResponse.data || []);
     } catch (fetchError) {
-      setError(fetchError?.response?.data?.error || 'Failed to load budgets and goals');
+      showToast(fetchError?.response?.data?.error || 'Failed to load budgets and goals', 'error');
     } finally {
       setLoading(false);
     }
@@ -63,12 +76,11 @@ const BudgetsGoals = () => {
 
   const handleCreateBudget = async () => {
     if (!budgetForm.category || !budgetForm.spendingLimit) {
-      setError('Please enter budget category and spending limit');
+      showToast('Please enter budget category and spending limit', 'error');
       return;
     }
 
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.createBudget({
         category: budgetForm.category,
@@ -76,10 +88,10 @@ const BudgetsGoals = () => {
         timeFrame: budgetForm.timeFrame
       });
       setBudgetForm({ category: '', spendingLimit: '', timeFrame: 'Monthly' });
-      setMessage('Budget created');
+      showToast('Budget created');
       fetchData();
     } catch (createError) {
-      setError(createError?.response?.data?.error || 'Failed to create budget');
+      showToast(createError?.response?.data?.error || 'Failed to create budget', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -87,12 +99,11 @@ const BudgetsGoals = () => {
 
   const handleCreateGoal = async () => {
     if (!goalForm.goalName || !goalForm.targetValue) {
-      setError('Please enter goal name and target value');
+      showToast('Please enter goal name and target value', 'error');
       return;
     }
 
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.createGoal({
         goalName: goalForm.goalName,
@@ -101,41 +112,84 @@ const BudgetsGoals = () => {
         targetDate: goalForm.targetDate || undefined
       });
       setGoalForm({ goalName: '', targetValue: '', currentSavedAmount: '0', targetDate: '' });
-      setMessage('Saving goal created');
+      showToast('Saving goal created');
       fetchData();
     } catch (createError) {
-      setError(createError?.response?.data?.error || 'Failed to create saving goal');
+      showToast(createError?.response?.data?.error || 'Failed to create saving goal', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDeleteBudget = async (id) => {
+  const handleDeleteBudget = async (id, label) => {
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.deleteBudget(id);
-      setMessage('Budget deleted');
+      showToast(`${label ? `${label} budget` : 'Budget'} deleted`);
       fetchData();
     } catch (deleteError) {
-      setError(deleteError?.response?.data?.error || 'Failed to delete budget');
+      showToast(deleteError?.response?.data?.error || 'Failed to delete budget', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleDeleteGoal = async (id) => {
+  const requestDeleteBudget = (budget) => {
+    setDeleteConfirm({ show: true, type: 'budget', id: budget._id, label: budget.category || 'this' });
+  };
+
+  const handleStartEditBudget = (budget) => {
+    setEditingBudgetId(budget._id);
+    setEditBudgetForm({
+      category: budget.category || '',
+      spendingLimit: String(budget.spendingLimit ?? ''),
+      timeFrame: budget.timeFrame || 'Monthly'
+    });
+  };
+
+  const handleCancelEditBudget = () => {
+    setEditingBudgetId(null);
+    setEditBudgetForm({ category: '', spendingLimit: '', timeFrame: 'Monthly' });
+  };
+
+  const handleUpdateBudget = async (id) => {
+    if (!editBudgetForm.category || !editBudgetForm.spendingLimit) {
+      showToast('Category and limit are required', 'error');
+      return;
+    }
+
     setActionLoading(true);
-    setError('');
     try {
-      await budgetGoalsApi.deleteGoal(id);
-      setMessage('Saving goal deleted');
+      await budgetGoalsApi.updateBudget(id, {
+        category: editBudgetForm.category,
+        spendingLimit: Number(editBudgetForm.spendingLimit),
+        timeFrame: editBudgetForm.timeFrame
+      });
+      showToast('Budget updated');
+      handleCancelEditBudget();
       fetchData();
-    } catch (deleteError) {
-      setError(deleteError?.response?.data?.error || 'Failed to delete saving goal');
+    } catch (updateError) {
+      showToast(updateError?.response?.data?.error || 'Failed to update budget', 'error');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleDeleteGoal = async (id, label) => {
+    setActionLoading(true);
+    try {
+      await budgetGoalsApi.deleteGoal(id);
+      showToast(`${label ? `${label} goal` : 'Saving goal'} deleted`);
+      fetchData();
+    } catch (deleteError) {
+      showToast(deleteError?.response?.data?.error || 'Failed to delete saving goal', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const requestDeleteGoal = (goal) => {
+    setDeleteConfirm({ show: true, type: 'goal', id: goal._id, label: goal.goalName || 'this' });
   };
 
   const handleStartEditGoal = (goal) => {
@@ -160,12 +214,11 @@ const BudgetsGoals = () => {
 
   const handleUpdateGoal = async (id) => {
     if (!editGoalForm.goalName || !editGoalForm.targetValue) {
-      setError('Goal name and target value are required');
+      showToast('Goal name and target value are required', 'error');
       return;
     }
 
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.updateGoal(id, {
         goalName: editGoalForm.goalName,
@@ -173,11 +226,11 @@ const BudgetsGoals = () => {
         currentSavedAmount: Number(editGoalForm.currentSavedAmount || 0),
         targetDate: editGoalForm.targetDate || null
       });
-      setMessage('Saving goal updated');
+      showToast('Saving goal updated');
       handleCancelEditGoal();
       fetchData();
     } catch (updateError) {
-      setError(updateError?.response?.data?.error || 'Failed to update saving goal');
+      showToast(updateError?.response?.data?.error || 'Failed to update saving goal', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -195,39 +248,89 @@ const BudgetsGoals = () => {
     const amount = Number(rawAmount);
 
     if (!amount || amount <= 0) {
-      setError('Contribution amount must be greater than 0');
+      showToast('Contribution amount must be greater than 0', 'error');
       return;
     }
 
     setActionLoading(true);
-    setError('');
     try {
       await budgetGoalsApi.contributeToGoal(goal._id, amount);
       setGoalContributionAmounts((prev) => ({ ...prev, [goal._id]: '' }));
-      setMessage(`LKR ${formatCurrency(amount)} added to ${goal.goalName} and logged as a transaction`);
+      showToast(`${currency} ${formatCurrency(amount)} added to ${goal.goalName} and logged as a transaction`);
       fetchData();
     } catch (contributionError) {
-      setError(contributionError?.response?.data?.error || 'Failed to contribute to goal');
+      showToast(contributionError?.response?.data?.error || 'Failed to contribute to goal', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm.id || !deleteConfirm.type) {
+      setDeleteConfirm({ show: false, type: null, id: null, label: '' });
+      return;
+    }
+
+    if (deleteConfirm.type === 'budget') {
+      await handleDeleteBudget(deleteConfirm.id, deleteConfirm.label);
+    } else {
+      await handleDeleteGoal(deleteConfirm.id, deleteConfirm.label);
+    }
+
+    setDeleteConfirm({ show: false, type: null, id: null, label: '' });
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirm({ show: false, type: null, id: null, label: '' });
+  };
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
+      {toast.show && (
+        <div
+          className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
+            toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+          }`}
+        >
+          {toast.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              Delete {deleteConfirm.type === 'budget' ? 'Budget' : 'Saving Goal'}
+            </h3>
+            <p className="text-gray-600 text-sm mb-6">
+              Are you sure you want to delete {deleteConfirm.label}? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelDelete}
+                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-8 text-left">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Budgets & Saving Goals</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Budgets and Saving Goals</h1>
             <p className="text-gray-500 text-sm">Set limits and track your journey to financial milestones.</p>
           </div>
-          <Button variant="primary" icon={Plus} onClick={fetchData} disabled={loading || actionLoading}>
-            Refresh
-          </Button>
         </div>
-
-        {error && <p className="mb-4 text-sm text-red-500 font-medium">{error}</p>}
-        {!error && message && <p className="mb-4 text-sm text-green-600 font-medium">{message}</p>}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <Card className="p-6">
@@ -314,29 +417,72 @@ const BudgetsGoals = () => {
                   const color = isOver ? 'bg-red-500' : percent >= 75 ? 'bg-amber-500' : 'bg-blue-500';
 
                   return (
-                    <div key={budget._id}>
-                      <div className="flex justify-between items-end mb-2">
-                        <div className="text-left">
-                          <p className="text-sm font-bold text-gray-700">{budget.category}</p>
-                          <p className="text-xs text-gray-400">
-                            LKR {formatCurrency(budget.currentSpending)} of {formatCurrency(budget.spendingLimit)} • {budget.timeFrame}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-xs font-bold ${isOver ? 'text-red-500' : 'text-gray-500'}`}>
-                            {percent.toFixed(0)}%
-                          </span>
-                          <button onClick={() => handleDeleteBudget(budget._id)} className="text-gray-400 hover:text-red-500">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                      <ProgressBar value={budget.currentSpending} max={budget.spendingLimit} color={color} />
-                      {isOver && (
-                        <div className="flex items-center gap-1 mt-2 text-red-500">
-                          <AlertTriangle size={12} />
-                          <span className="text-[10px] font-bold uppercase">Over Budget Alert</span>
-                        </div>
+                    <div key={budget._id} className="p-4 bg-blue-50/40 rounded-xl border border-blue-100 border-dashed">
+                      {editingBudgetId === budget._id ? (
+                        <>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                            <Input
+                              label="Category"
+                              value={editBudgetForm.category}
+                              onChange={(e) => setEditBudgetForm({ ...editBudgetForm, category: e.target.value })}
+                            />
+                            <Input
+                              label="Limit"
+                              type="number"
+                              value={editBudgetForm.spendingLimit}
+                              onChange={(e) => setEditBudgetForm({ ...editBudgetForm, spendingLimit: e.target.value })}
+                            />
+                            <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase ml-1 mb-1">Timeframe</label>
+                              <select
+                                value={editBudgetForm.timeFrame}
+                                onChange={(e) => setEditBudgetForm({ ...editBudgetForm, timeFrame: e.target.value })}
+                                className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3.5 px-4 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm"
+                              >
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
+                                <option value="Yearly">Yearly</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button size="sm" onClick={() => handleUpdateBudget(budget._id)} disabled={actionLoading} icon={Check}>
+                              Save
+                            </Button>
+                            <Button size="sm" variant="secondary" onClick={handleCancelEditBudget} icon={X}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between items-end mb-2">
+                            <div className="text-left">
+                              <p className="text-sm font-bold text-gray-700">{budget.category}</p>
+                              <p className="text-xs text-gray-400">
+                                {currency} {formatCurrency(budget.currentSpending)} of {formatCurrency(budget.spendingLimit)} • {budget.timeFrame}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xs font-bold ${isOver ? 'text-red-500' : 'text-gray-500'}`}>
+                                {percent.toFixed(0)}%
+                              </span>
+                              <button onClick={() => handleStartEditBudget(budget)} className="text-gray-400 hover:text-blue-500">
+                                <Pencil size={16} />
+                              </button>
+                              <button onClick={() => requestDeleteBudget(budget)} className="text-gray-400 hover:text-red-500">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                          <ProgressBar value={budget.currentSpending} max={budget.spendingLimit} color={color} />
+                          {isOver && (
+                            <div className="flex items-center gap-1 mt-2 text-red-500">
+                              <AlertTriangle size={12} />
+                              <span className="text-[10px] font-bold uppercase">Over Budget Alert</span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   );
@@ -411,7 +557,7 @@ const BudgetsGoals = () => {
                                 <button onClick={() => handleStartEditGoal(goal)} className="text-indigo-400 hover:text-indigo-600">
                                   <Pencil size={16} />
                                 </button>
-                                <button onClick={() => handleDeleteGoal(goal._id)} className="text-indigo-400 hover:text-red-500">
+                                <button onClick={() => requestDeleteGoal(goal)} className="text-indigo-400 hover:text-red-500">
                                   <Trash2 size={16} />
                                 </button>
                               </div>
@@ -425,7 +571,7 @@ const BudgetsGoals = () => {
                               </div>
                             </div>
                             <div className="mt-3 flex justify-between items-center">
-                              <p className="text-xs font-medium text-indigo-700">LKR {formatCurrency(goal.currentSavedAmount)}</p>
+                              <p className="text-xs font-medium text-indigo-700">{currency} {formatCurrency(goal.currentSavedAmount)}</p>
                               <p className="text-xs font-medium text-gray-400">Goal: {formatCurrency(goal.targetValue)}</p>
                             </div>
                             <div className="mt-3 flex gap-2">

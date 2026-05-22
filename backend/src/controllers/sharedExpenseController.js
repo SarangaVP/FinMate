@@ -1,0 +1,426 @@
+const SharedExpense = require('../models/SharedExpense');
+const SharedGroup = require('../models/SharedGroup');
+const Settlement = require('../models/Settlement');
+const User = require('../models/User');
+const Transaction = require('../models/Transaction');
+
+exports.addExpense = async (req, res) => {
+    try {
+        const { groupID, description, amount, splitType, participants, category, paidBy } = req.body;
+
+        if (!groupID || !description || !amount || !participants || !paidBy) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+
+        const group = await SharedGroup.findById(groupID);
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        if (!group.memberIDs.some(member => member.toString() === req.user.id)) {
+            return res.status(403).json({ message: 'You are not a member of this group' });
+        }
+
+        // Filter out the payer from participants to avoid duplicate transactions
+        const filteredParticipants = participants.filter(p => {
+            const participantId = p.userID || p;
+            return participantId.toString() !== paidBy.toString();
+        });
+
+        const expense = new SharedExpense({
+            groupID,
+            description,
+            amount,
+            paidBy: paidBy,
+            splitType: splitType || 'equal',
+            participants: filteredParticipants,
+            category: category || 'General',
+            createdBy: req.user.id
+        });
+
+        await expense.save();
+        await expense.populate('paidBy', 'name email primaryCurrency');
+        await expense.populate('participants.userID', 'name email');
+
+        await createSettlements(expense);
+
+        // Create a transaction ONLY for the actual payer (who paid the full amount)
+        const transaction = new Transaction({
+            userId: paidBy,
+            amount: amount,
+            description: `Shared expense: ${description}`,
+            category: category || 'General',
+            type: 'expense',
+            date: new Date(),
+            groupId: groupID
+        });
+
+        await transaction.save();
+
+        res.status(201).json({ message: 'Expense added successfully', expense, transaction });
+    } catch (error) {
+        res.status(500).json({ message: 'Error adding expense', error: error.message });
+    }
+};
+
+// Create settlement records from an expense (without creating transactions yet)
+const createSettlements = async (expense) => {
+    try {
+        // For each participant who is not the payer, create a settlement
+        for (const participant of expense.participants) {
+            const userId = participant.userID._id || participant.userID;
+            
+            // Skip if the participant is the payer
+            if (userId.toString() === expense.paidBy.toString()) {
+                continue;
+            }
+
+            // Check if settlement already exists
+            const existingSettlement = await Settlement.findOne({
+                groupId: expense.groupID,
+                payerId: userId,
+                payeeId: expense.paidBy,
+                status: 'Pending'
+            });
+
+            let settlement;
+            if (existingSettlement) {
+                // Update existing settlement
+                existingSettlement.amount += participant.amount;
+                settlement = await existingSettlement.save();
+            } else {
+                // Create new settlement - NO TRANSACTIONS YET
+                settlement = new Settlement({
+                    groupId: expense.groupID,
+                    payerId: userId,
+                    payeeId: expense.paidBy,
+                    amount: participant.amount,
+                    status: 'Pending'
+                });
+                settlement = await settlement.save();
+            }
+        }
+    } catch (error) {
+        console.error('Error creating settlements:', error);
+    }
+};
+
+// Get all expenses for a group
+exports.getGroupExpenses = async (req, res) => {
+    try {
+        const { groupID } = req.params;
+
+        const group = await SharedGroup.findById(groupID);
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        if (!group.memberIDs.some(member => member.toString() === req.user.id)) {
+            return res.status(403).json({ message: 'You are not a member of this group' });
+        }
+
+        const expenses = await SharedExpense.find({ groupID })
+            .populate('paidBy', 'name email primaryCurrency')
+            .populate('participants.userID', 'name email')
+            .populate('createdBy', 'name email')
+            .sort({ date: -1 });
+
+        res.status(200).json(expenses);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching expenses', error: error.message });
+    }
+};
+
+// Get a specific expense
+exports.getExpenseById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const expense = await SharedExpense.findById(id)
+            .populate('groupID')
+            .populate('paidBy', 'name email primaryCurrency')
+            .populate('participants.userID', 'name email')
+            .populate('createdBy', 'name email');
+
+        if (!expense) {
+            return res.status(404).json({ message: 'Expense not found' });
+        }
+
+        // Check if user has access
+        if (!expense.groupID.memberIDs.some(member => member.toString() === req.user.id)) {
+            return res.status(403).json({ message: 'You do not have access to this expense' });
+        }
+
+        res.status(200).json(expense);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching expense', error: error.message });
+    }
+};
+
+// Update an expense
+exports.updateExpense = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { description, amount, splitType, participants, category } = req.body;
+
+        const expense = await SharedExpense.findById(id)
+            .populate('groupID')
+            .populate('paidBy', 'name email primaryCurrency');
+
+        if (!expense) {
+            return res.status(404).json({ message: 'Expense not found' });
+        }
+
+        // Check if user created this expense or is admin
+        if (expense.createdBy.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'You can only edit your own expenses' });
+        }
+
+        const oldDescription = expense.description;
+        const oldAmount = expense.amount;
+
+        // Update fields
+        if (description) expense.description = description;
+        if (amount) expense.amount = amount;
+        if (splitType) expense.splitType = splitType;
+        if (participants) expense.participants = participants;
+        if (category) expense.category = category;
+
+        await expense.save();
+
+        // Update the payer's transaction (full amount)
+        await Transaction.findOneAndUpdate(
+            {
+                userId: expense.paidBy,
+                description: `Shared expense: ${oldDescription}`,
+                groupId: expense.groupID,
+                type: 'expense'
+            },
+            {
+                amount: amount || oldAmount,
+                description: `Shared expense: ${description || oldDescription}`,
+                category: category || expense.category
+            }
+        );
+
+        // Delete old settlements related to this expense (where payee is the payer)
+        const oldSettlements = await Settlement.find({ 
+            groupId: expense.groupID,
+            payeeId: expense.paidBy
+        });
+
+        for (const settlement of oldSettlements) {
+            if (settlement.expenseTransactionId) {
+                await Transaction.findByIdAndDelete(settlement.expenseTransactionId);
+            }
+            if (settlement.incomeTransactionId) {
+                await Transaction.findByIdAndDelete(settlement.incomeTransactionId);
+            }
+            // Delete the settlement itself
+            await Settlement.findByIdAndDelete(settlement._id);
+        }
+
+        // Recreate settlements with new amounts
+        await createSettlements(expense);
+
+        await expense.populate('paidBy', 'name email primaryCurrency');
+        await expense.populate('participants.userID', 'name email');
+
+        res.status(200).json({ message: 'Expense updated successfully', expense });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating expense', error: error.message });
+    }
+};
+
+// Delete an expense
+exports.deleteExpense = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const expense = await SharedExpense.findById(id);
+
+        if (!expense) {
+            return res.status(404).json({ message: 'Expense not found' });
+        }
+
+        // Check if user created this expense
+        if (expense.createdBy.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'You can only delete your own expenses' });
+        }
+
+        // Find all settlements related to this expense (where payer is one of participants and payee is the payer)
+        const settlements = await Settlement.find({
+            groupId: expense.groupID,
+            payeeId: expense.paidBy
+        });
+
+        // For each settlement, delete both its expense and income transactions
+        for (const settlement of settlements) {
+            if (settlement.expenseTransactionId) {
+                await Transaction.findByIdAndDelete(settlement.expenseTransactionId);
+            }
+            if (settlement.incomeTransactionId) {
+                await Transaction.findByIdAndDelete(settlement.incomeTransactionId);
+            }
+            // Delete the settlement itself
+            await Settlement.findByIdAndDelete(settlement._id);
+        }
+
+        // Delete the main expense transaction (payer's transaction for paying the full amount)
+        await Transaction.findOneAndDelete({
+            description: `Shared expense: ${expense.description}`,
+            userId: expense.paidBy,
+            groupId: expense.groupID,
+            type: 'expense'
+        });
+
+        // Delete the expense record
+        await SharedExpense.findByIdAndDelete(id);
+
+        res.status(200).json({ message: 'Expense deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting expense', error: error.message });
+    }
+};
+
+// Calculate who owes whom based on expenses
+exports.calculateGroupBalance = async (req, res) => {
+    try {
+        const { groupID } = req.params;
+
+        const group = await SharedGroup.findById(groupID)
+            .populate('memberIDs', 'name email');
+
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        if (!group.memberIDs.some(member => member._id.toString() === req.user.id)) {
+            return res.status(403).json({ message: 'You are not a member of this group' });
+        }
+
+        const expenses = await SharedExpense.find({ groupID })
+            .populate('paidBy', 'name email')
+            .populate('participants.userID', 'name email');
+
+        // Calculate balances
+        const balances = {};
+        group.memberIDs.forEach(member => {
+            balances[member._id] = 0;
+        });
+
+        expenses.forEach(expense => {
+            const paidById = expense.paidBy._id.toString();
+            
+            expense.participants.forEach(participant => {
+                const participantId = participant.userID._id.toString();
+                
+                if (participantId !== paidById) {
+                    // This person owes money to the payer
+                    balances[participantId] -= participant.amount;
+                    balances[paidById] += participant.amount;
+                }
+            });
+        });
+
+        // Get pending settlements
+        const settlements = await Settlement.find({ groupId: expense.groupID, status: 'Pending' })
+            .populate('payerId', 'name email')
+            .populate('payeeId', 'name email');
+
+        const balanceList = group.memberIDs.map(member => ({
+            userID: member._id,
+            name: member.name,
+            email: member.email,
+            balance: balances[member._id] || 0
+        }));
+
+        res.status(200).json({
+            group,
+            balances: balanceList,
+            settlements,
+            expenses
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error calculating balance', error: error.message });
+    }
+};
+
+// Pay a settlement (creates expense for payer and income for creditor)
+exports.paySettlement = async (req, res) => {
+    try {
+        const { settlementId } = req.params;
+        const { amount } = req.body;
+
+        const settlement = await Settlement.findById(settlementId)
+            .populate('payerId', 'name email')
+            .populate('payeeId', 'name email')
+            .populate('groupId');
+
+        if (!settlement) {
+            return res.status(404).json({ message: 'Settlement not found' });
+        }
+
+        // Check if user is the payer (who owes the money)
+        if (settlement.payerId._id.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Only the person who owes can pay this settlement' });
+        }
+
+        const payAmount = amount || settlement.amount;
+
+        if (payAmount <= 0 || payAmount > settlement.amount) {
+            return res.status(400).json({ message: 'Invalid payment amount' });
+        }
+
+        // Create expense transaction for the payer (who is paying back)
+        const expenseTransaction = new Transaction({
+            userId: settlement.payerId._id,
+            amount: payAmount,
+            description: `Settlement payment to ${settlement.payeeId.name}`,
+            category: 'Settlement',
+            type: 'expense',
+            date: new Date(),
+            groupId: settlement.groupId
+        });
+
+        await expenseTransaction.save();
+
+        // Create income transaction for the creditor (who receives money)
+        const incomeTransaction = new Transaction({
+            userId: settlement.payeeId._id,
+            amount: payAmount,
+            description: `Settlement received from ${settlement.payerId.name}`,
+            category: 'Settlement',
+            type: 'income',
+            date: new Date(),
+            groupId: settlement.groupId
+        });
+
+        await incomeTransaction.save();
+
+        // Update settlement
+        settlement.expenseTransactionId = expenseTransaction._id;
+        settlement.incomeTransactionId = incomeTransaction._id;
+        settlement.paidAt = new Date();
+
+        // If payment equals settlement amount, mark as completed
+        if (payAmount >= settlement.amount) {
+            settlement.status = 'Completed';
+            settlement.amount = payAmount;
+        } else {
+            // Partial payment - reduce settlement amount
+            settlement.amount -= payAmount;
+        }
+
+        await settlement.save();
+
+        res.status(200).json({
+            message: 'Settlement paid successfully',
+            settlement,
+            expenseTransaction,
+            incomeTransaction
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error paying settlement', error: error.message });
+    }
+};

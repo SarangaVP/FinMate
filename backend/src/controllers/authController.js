@@ -15,7 +15,6 @@ exports.register = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Create user based on ER Diagram fields
         user = new User({
             firstName,
             lastName,
@@ -34,20 +33,25 @@ exports.register = async (req, res) => {
 // Login user and return JWT
 exports.login = async (req, res) => {
     try {
-        const { email, password } = req.body;  // Changed from emailAddress to email
+        const { email, password } = req.body; 
 
-        const user = await User.findOne({ email });  // Changed from emailAddress to email
+        const user = await User.findOne({ email }); 
         if (!user) return res.status(400).json({ message: "Invalid Credentials" });
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: "Invalid Credentials" });
 
-        // Generate JWT
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        // Generate JWT (expires in 7 days)
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
         res.json({
             token,
-            user: { id: user._id, name: user.firstName, currency: user.primaryCurrency }
+            user: { 
+                id: user._id, 
+                name: user.firstName, 
+                email: user.email,
+                primaryCurrency: user.primaryCurrency 
+            }
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
