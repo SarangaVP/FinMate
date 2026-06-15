@@ -31,9 +31,8 @@ export const sharedGroupsApi = {
   }),
 
   // Update group name
-  updateGroup: (groupId, groupName) => API.put(`/shared-groups/${groupId}`, {
-    groupId,
-    groupName
+  updateGroup: (groupId, groupData) => API.put(`/shared-groups/${groupId}`, {
+    groupName: groupData.groupName
   }),
 
   // Delete a group

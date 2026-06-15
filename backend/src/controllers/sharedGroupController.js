@@ -6,7 +6,8 @@ const Settlement = require('../models/Settlement');
 exports.getGroups = async (req, res) => {
     try {
         const groups = await SharedGroup.find({ memberIDs: req.user.id })
-            .populate('memberIDs', 'name email');
+            .populate('memberIDs', 'name email')
+            .populate('adminID', 'name email');
         res.status(200).json(groups);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching groups', error: error.message });
@@ -59,12 +60,15 @@ exports.createGroup = async (req, res) => {
         const group = new SharedGroup({
             groupName,
             memberIDs: [...new Set(memberIDs)], // Remove duplicates
+            adminID: req.user.id // Creator is the admin
         });
 
         await group.save();
-        await group.populate('memberIDs', 'name email');
+        const populatedGroup = await SharedGroup.findById(group._id)
+            .populate('memberIDs', 'name email')
+            .populate('adminID', 'name email');
 
-        res.status(201).json({ message: 'Group created successfully', group });
+        res.status(201).json({ message: 'Group created successfully', group: populatedGroup });
     } catch (error) {
         res.status(500).json({ message: 'Error creating group', error: error.message });
     }
@@ -175,51 +179,59 @@ exports.removeMember = async (req, res) => {
 // Update group name
 exports.updateGroup = async (req, res) => {
     try {
-        const { groupId, groupName } = req.body;
+        const groupId = req.params.id || req.body.groupId;
+        const { groupName } = req.body;
 
         if (!groupId || !groupName) {
             return res.status(400).json({ message: 'Group ID and name are required' });
         }
 
-        const group = await SharedGroup.findById(groupId);
+        const group = await SharedGroup.findById(groupId)
+            .populate('adminID', '_id');
 
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
         }
 
-        // Check if user is a member
-        if (!group.memberIDs.some(member => member.toString() === req.user.id)) {
-            return res.status(403).json({ message: 'You are not a member of this group' });
+        // Check if user is admin
+        const adminId = group.adminID?._id?.toString() || group.adminID?.toString();
+        if (!adminId || adminId !== req.user.id) {
+            return res.status(403).json({ message: 'Only admin can edit group details' });
         }
 
         group.groupName = groupName;
         await group.save();
-        await group.populate('memberIDs', 'name email');
+        
+        const updatedGroup = await SharedGroup.findById(groupId)
+            .populate('memberIDs', 'name email')
+            .populate('adminID', 'name email');
 
-        res.status(200).json({ message: 'Group updated successfully', group });
+        res.status(200).json({ message: 'Group updated successfully', group: updatedGroup });
     } catch (error) {
         res.status(500).json({ message: 'Error updating group', error: error.message });
     }
 };
 
-// Delete a group (only creator or any member?)
+// Delete a group (only admin can delete)
 exports.deleteGroup = async (req, res) => {
     try {
-        const { groupId } = req.body;
+        const groupId = req.params.id || req.body.groupId;
 
         if (!groupId) {
             return res.status(400).json({ message: 'Group ID is required' });
         }
 
-        const group = await SharedGroup.findById(groupId);
+        const group = await SharedGroup.findById(groupId)
+            .populate('adminID', '_id');
 
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
         }
 
-        // Check if user is a member
-        if (!group.memberIDs.some(member => member.toString() === req.user.id)) {
-            return res.status(403).json({ message: 'You are not a member of this group' });
+        // Check if user is admin
+        const adminId = group.adminID?._id?.toString() || group.adminID?.toString();
+        if (!adminId || adminId !== req.user.id) {
+            return res.status(403).json({ message: 'Only admin can delete this group' });
         }
 
         // Delete related settlements
