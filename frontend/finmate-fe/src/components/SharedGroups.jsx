@@ -15,15 +15,18 @@ const SharedGroups = () => {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [showSettlePaymentModal, setShowSettlePaymentModal] = useState(false);
+  const [showEditGroupModal, setShowEditGroupModal] = useState(false);
   const [selectedSettlement, setSelectedSettlement] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [formData, setFormData] = useState({ groupName: '', memberEmails: [] });
+  const [editGroupData, setEditGroupData] = useState({ groupName: '' });
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [groupBalances, setGroupBalances] = useState(null);
   const [groupExpenses, setGroupExpenses] = useState([]);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [expandedExpense, setExpandedExpense] = useState(null);
+  const [openGroupMenuId, setOpenGroupMenuId] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -228,6 +231,46 @@ const SharedGroups = () => {
     }
   };
 
+  const handleEditGroup = async (e) => {
+    e.preventDefault();
+    if (!editGroupData.groupName.trim()) {
+      showToast('Group name is required', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await sharedGroupsApi.updateGroup(selectedGroup._id, editGroupData);
+      showToast('Group updated successfully');
+      setShowEditGroupModal(false);
+      setEditGroupData({ groupName: '' });
+      fetchGroups();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update group', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!window.confirm('Are you sure you want to delete this group? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await sharedGroupsApi.deleteGroup(selectedGroup._id);
+      showToast('Group deleted successfully');
+      setSelectedGroup(null);
+      setShowEditGroupModal(false);
+      fetchGroups();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to delete group', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading && groups.length === 0) {
     return <div className="p-8 text-center">Loading groups...</div>;
   }
@@ -384,6 +427,60 @@ const SharedGroups = () => {
           </div>
         )}
 
+        {/* Edit Group Modal */}
+        {showEditGroupModal && selectedGroup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Edit Group</h2>
+                <button onClick={() => setShowEditGroupModal(false)} className="text-gray-500 hover:text-gray-700">
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={handleEditGroup} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Group Name</label>
+                  <input
+                    type="text"
+                    value={editGroupData.groupName}
+                    onChange={(e) => setEditGroupData({ ...editGroupData, groupName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., Roommates, Trip Fund"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditGroupModal(false)}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <button
+                    type="button"
+                    onClick={handleDeleteGroup}
+                    disabled={loading}
+                    className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-semibold disabled:opacity-50"
+                  >
+                    Delete Group
+                  </button>
+                </div>
+              </form>
+            </Card>
+          </div>
+        )}
+
         {/* Add/Edit Expense Modal */}
         {(showAddExpenseModal || editingExpenseId) && selectedGroup && (
           <AddExpenseModal
@@ -437,6 +534,13 @@ const SharedGroups = () => {
               groups.map(group => {
                 const memberCount = group.memberIDs?.length || 0;
                 const isSelected = selectedGroup?._id === group._id;
+                
+                // Check if user is admin - handle both populated object and string ID
+                const adminId = String(group.adminID?._id || group.adminID || '');
+                const userId = String(user?._id || user?.id || '');
+                const isAdmin = adminId && userId && adminId === userId;
+                
+                const isMenuOpen = openGroupMenuId === group._id;
 
                 return (
                   <Card
@@ -450,15 +554,53 @@ const SharedGroups = () => {
                       <div className="bg-blue-50 p-3 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                         <Users size={20} />
                       </div>
-                      <button 
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-gray-400"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
+                      {isAdmin && (
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenGroupMenuId(isMenuOpen ? null : group._id);
+                            }}
+                            className="text-gray-400 hover:text-gray-600 p-1"
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+                          {isMenuOpen && (
+                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditGroupData({ groupName: group.groupName });
+                                  setShowEditGroupModal(true);
+                                  setOpenGroupMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100"
+                              >
+                                Edit Group
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditGroupData({ groupName: group.groupName });
+                                  setShowEditGroupModal(true);
+                                  setOpenGroupMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <h4 className="font-bold text-gray-800 mb-1 text-left">{group.groupName}</h4>
                     <p className="text-xs text-gray-500 mb-4 text-left">{memberCount} Members</p>
+                    {isAdmin && (
+                      <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded inline-block">
+                        Admin
+                      </div>
+                    )}
                   </Card>
                 );
               })
