@@ -431,7 +431,7 @@ const Transactions = () => {
                 <tr className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
                   <th className="px-6 py-4">Type</th>
                   <th className="px-6 py-4">Description</th>
-                  <th className="px-6 py-4 text-center">AI Category</th>
+                  <th className="px-6 py-4 text-center">Category</th>
                   <th className="px-6 py-4 text-center">Date</th>
                   <th className="px-6 py-4 text-right">Amount ({currency})</th>
                   <th className="px-6 py-4 text-center">Actions</th>
