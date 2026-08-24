@@ -185,7 +185,7 @@ const Profile = () => {
             </Card>
 
             {/* Danger Zone - Fulfills Profile Control Requirement */}
-            <Card className="p-6 bg-red-50 border-red-100">
+            {/* <Card className="p-6 bg-red-50 border-red-100">
               <div className="flex items-center gap-2 mb-4 text-red-600">
                 <AlertCircle size={18} />
                 <h3 className="text-xs font-bold uppercase tracking-widest">Danger Zone</h3>
@@ -197,7 +197,7 @@ const Profile = () => {
                 <Trash2 size={16} />
                 Delete My Account
               </button>
-            </Card>
+            </Card> */}
           </div>
 
           {/* RIGHT COLUMN: Settings Forms */}
